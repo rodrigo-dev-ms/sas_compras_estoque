@@ -4,8 +4,8 @@ main.py — Ponto de entrada da aplicação Quicker Compras (MVP).
 Responsabilidades:
     - Lifespan: inicializa o banco de dados na subida da aplicação.
     - Rotas HTML: login, dashboard e logout (Jinja2 + cookies de sessão).
-    - API /api/solicitacoes: CRUD completo com regras de negócio de status.
-    - API /api/usuarios: gestão de usuários restrita a administradores.
+    - API /api/solicitacoes: CRUD com histórico unificado e filtros por status e solicitante_id.
+    - API /api/usuarios: CRUD completo de usuários restrito a administradores.
 """
 
 import logging
@@ -14,7 +14,7 @@ from datetime import date
 from typing import Any, AsyncGenerator
 
 import uvicorn
-from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -29,6 +29,7 @@ from schemas import (
     UsuarioCreate,
     UsuarioPasswordReset,
     UsuarioRead,
+    UsuarioUpdate,
 )
 
 # ---------------------------------------------------------------------------
@@ -57,6 +58,9 @@ STATUS_VALIDOS: set[str] = {"ABERTA", "EM ANDAMENTO", "FINALIZADA"}
 # Role que concede acesso administrativo
 ROLE_ADMIN: str = "admin"
 
+# Role de usuário desativado
+ROLE_INATIVO: str = "inativo"
+
 # ---------------------------------------------------------------------------
 # Lifespan — inicializa o banco antes de aceitar requisições
 # ---------------------------------------------------------------------------
@@ -83,7 +87,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(
     title="Quicker Compras — Solicitação de Estoque",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -115,16 +119,22 @@ def _get_user_from_cookie(request: Request, db: Session) -> User | None:
 
 def _requer_auth(request: Request, db: Session = Depends(get_db)) -> User:
     """
-    Dependência FastAPI: exige que o usuário esteja autenticado.
+    Dependência FastAPI: exige que o usuário esteja autenticado e ativo.
 
     Raises:
         HTTP 401 — cookie ausente ou ID inválido.
+        HTTP 403 — usuário inativo no sistema.
     """
     user: User | None = _get_user_from_cookie(request, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário não autenticado.",
+        )
+    if user.role == ROLE_INATIVO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuário inativo. Contate o administrador.",
         )
     return user
 
@@ -175,6 +185,14 @@ async def login(
     )
 
     if user and user.password == password:
+        if user.role == ROLE_INATIVO:
+            logger.warning("Tentativa de login de usuário inativo: %r", username)
+            return templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": "Usuário inativo. Contate o administrador."},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         response = RedirectResponse(
             url="/dashboard",
             status_code=status.HTTP_302_FOUND,
@@ -211,6 +229,11 @@ async def dashboard(
 
     if not user:
         return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+
+    if user.role == ROLE_INATIVO:
+        response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+        response.delete_cookie(key="session_user_id")
+        return response
 
     hoje: str = date.today().strftime("%Y-%m-%d")
     return templates.TemplateResponse(
@@ -286,14 +309,37 @@ async def criar_solicitacao(
     tags=["Solicitações"],
 )
 async def listar_solicitacoes(
+    status: str | None = Query(
+        default=None,
+        description="Filtro opcional por status (ex: ABERTA, EM ANDAMENTO, FINALIZADA)",
+    ),
+    solicitante_id: int | None = Query(
+        default=None,
+        description="Filtro opcional por ID do solicitante",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(_requer_auth),  # noqa: ARG001
 ) -> JSONResponse:
     """
-    Retorna todas as solicitações em formato JSON.
-    Inclui o nome do solicitante em cada registro.
+    Retorna o histórico de solicitações em formato JSON.
+
+    Garantia de histórico unificado:
+        - Todos os usuários leem a mesma sequência global persistida no banco.
+        - Ordenação determinística decrescente por ID (mais recente primeiro).
+        - Filtros opcionais via Query Parameters: 'status' e 'solicitante_id'.
     """
-    solicitacoes: list[Solicitacao] = db.query(Solicitacao).all()
+    query = db.query(Solicitacao)
+
+    if status:
+        status_filtro: str = status.strip().upper()
+        query = query.filter(Solicitacao.status == status_filtro)
+
+    if solicitante_id is not None:
+        query = query.filter(Solicitacao.solicitante_id == solicitante_id)
+
+    # Histórico unificado: ordenação decrescente por ID para todos os usuários
+    solicitacoes: list[Solicitacao] = query.order_by(Solicitacao.id.desc()).all()
+
     return JSONResponse(
         content=[_serializar_solicitacao(s) for s in solicitacoes]
     )
@@ -462,7 +508,7 @@ async def deletar_solicitacao(
 
 
 # ---------------------------------------------------------------------------
-# API — Gestão de Usuários (somente admin)
+# API — Gestão de Usuários (CRUD completo — somente admin)
 # ---------------------------------------------------------------------------
 
 
@@ -475,12 +521,39 @@ async def listar_usuarios(
     _admin: User = Depends(_requer_admin),
 ) -> JSONResponse:
     """
-    Lista todos os usuários do sistema.
+    Lista todos os usuários cadastrados no sistema.
     Restrito a administradores. Senha nunca é exposta.
     """
     usuarios: list[User] = db.query(User).order_by(User.id).all()
     return JSONResponse(
         content=[UsuarioRead.model_validate(u).model_dump() for u in usuarios]
+    )
+
+
+@app.get(
+    "/api/usuarios/{usuario_id}",
+    tags=["Usuários — Admin"],
+)
+async def obter_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(_requer_admin),
+) -> JSONResponse:
+    """
+    Busca um usuário específico pelo ID.
+    Restrito a administradores. Senha nunca é exposta.
+
+    Raises:
+        HTTP 404 — usuário não encontrado.
+    """
+    usuario: User | None = db.query(User).filter(User.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Usuário id={usuario_id} não encontrado.",
+        )
+    return JSONResponse(
+        content=UsuarioRead.model_validate(usuario).model_dump()
     )
 
 
@@ -513,7 +586,7 @@ async def criar_usuario(
     novo_usuario = User(
         username=payload.username,
         password=payload.password,  # MVP — hash em produção
-        role=payload.role,
+        role=payload.role.strip().lower(),
     )
     db.add(novo_usuario)
     db.commit()
@@ -532,6 +605,88 @@ async def criar_usuario(
 
 
 @app.put(
+    "/api/usuarios/{usuario_id}",
+    tags=["Usuários — Admin"],
+)
+async def atualizar_usuario(
+    usuario_id: int,
+    payload: UsuarioUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(_requer_admin),
+) -> JSONResponse:
+    """
+    Atualiza os dados de um usuário (username, senha, role ou inativação).
+    Restrito a administradores.
+
+    Raises:
+        HTTP 400 — tentativa de remover privilégio admin do próprio usuário logado.
+        HTTP 404 — usuário não encontrado.
+        HTTP 409 — username em conflito com outro usuário.
+    """
+    usuario: User | None = db.query(User).filter(User.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Usuário id={usuario_id} não encontrado.",
+        )
+
+    # Previne que o admin remova o próprio perfil ou se auto-inative
+    if usuario_id == _admin.id:
+        if payload.role and payload.role.strip().lower() != ROLE_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não é permitido remover a role de administrador do próprio usuário em sessão.",
+            )
+        if payload.is_active is False or (payload.role and payload.role.strip().lower() == ROLE_INATIVO):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não é permitido inativar o próprio usuário administrador em sessão.",
+            )
+
+    # Validação de unicidade caso o username tenha sido alterado
+    if payload.username and payload.username != usuario.username:
+        existente: User | None = (
+            db.query(User)
+            .filter(User.username == payload.username, User.id != usuario_id)
+            .first()
+        )
+        if existente:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Username '{payload.username}' já está em uso por outro usuário.",
+            )
+        usuario.username = payload.username
+
+    if payload.password:
+        usuario.password = payload.password  # MVP — hash em produção
+
+    if payload.role:
+        usuario.role = payload.role.strip().lower()
+
+    # Tratamento de flag de ativação/inativação
+    if payload.is_active is not None:
+        if hasattr(usuario, "is_active"):
+            setattr(usuario, "is_active", payload.is_active)
+        elif not payload.is_active and usuario.role != ROLE_INATIVO:
+            usuario.role = ROLE_INATIVO
+        elif payload.is_active and usuario.role == ROLE_INATIVO:
+            usuario.role = "solicitante"
+
+    db.commit()
+    db.refresh(usuario)
+
+    logger.info(
+        "Usuário atualizado: id=%d username=%r role=%r",
+        usuario.id,
+        usuario.username,
+        usuario.role,
+    )
+    return JSONResponse(
+        content=UsuarioRead.model_validate(usuario).model_dump()
+    )
+
+
+@app.put(
     "/api/usuarios/{usuario_id}/senha",
     tags=["Usuários — Admin"],
 )
@@ -542,7 +697,7 @@ async def redefinir_senha(
     _admin: User = Depends(_requer_admin),
 ) -> JSONResponse:
     """
-    Redefine a senha de um usuário.
+    Redefine exclusivamente a senha de um usuário.
     Restrito a administradores.
 
     Raises:
@@ -567,6 +722,59 @@ async def redefinir_senha(
     )
     return JSONResponse(
         content={"detail": f"Senha do usuário '{usuario.username}' redefinida com sucesso."}
+    )
+
+
+@app.delete(
+    "/api/usuarios/{usuario_id}",
+    status_code=status.HTTP_200_OK,
+    tags=["Usuários — Admin"],
+)
+async def deletar_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(_requer_admin),
+) -> JSONResponse:
+    """
+    Exclui um usuário do sistema.
+    Restrito a administradores. Não permite auto-exclusão.
+
+    Raises:
+        HTTP 400 — tentativa de excluir o próprio usuário logado ou erro de FK.
+        HTTP 404 — usuário não encontrado.
+    """
+    if usuario_id == _admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível excluir o próprio usuário logado.",
+        )
+
+    usuario: User | None = db.query(User).filter(User.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Usuário id={usuario_id} não encontrado.",
+        )
+
+    try:
+        db.delete(usuario)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.warning(
+            "Falha ao excluir usuário id=%d: %s", usuario_id, exc
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Não foi possível excluir o usuário id={usuario_id} pois ele possui registros "
+                "vinculados no sistema. Utilize a atualização para inativá-lo (role='inativo')."
+            ),
+        )
+
+    logger.info("Usuário excluído: id=%d username=%r", usuario_id, usuario.username)
+    return JSONResponse(
+        content={"detail": f"Usuário '{usuario.username}' excluído com sucesso."}
     )
 
 
@@ -603,4 +811,9 @@ def _serializar_solicitacao(s: Solicitacao) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+    )
