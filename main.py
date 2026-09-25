@@ -359,12 +359,13 @@ async def atualizar_solicitacao(
     Atualiza os dados principais de uma O.S. (Editar Itens, Setor, Destino,
     Objetivo).
 
-    Regra de negócio:
+    Regras de negócio e RBAC:
+        - Apenas admin ou o próprio solicitante (autor) podem editar.
         - Só permitido se status for 'ABERTA' ou 'EM ANDAMENTO'.
         - Campos None no payload são ignorados (não sobrescrevem o valor atual).
 
     Raises:
-        HTTP 403 — O.S. com status 'FINALIZADA' não pode ser editada.
+        HTTP 403 — sem permissão para editar O.S. de outro usuário ou status 'FINALIZADA'.
         HTTP 404 — O.S. não encontrada.
     """
     solicitacao: Solicitacao | None = (
@@ -376,6 +377,13 @@ async def atualizar_solicitacao(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Solicitação id={solicitacao_id} não encontrada.",
+        )
+
+    # Controle de Acesso (RBAC): Apenas admin ou o autor da solicitação
+    if current_user.role != ROLE_ADMIN and solicitacao.solicitante_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não tem permissão para editar uma O.S. criada por outro usuário.",
         )
 
     if solicitacao.status not in STATUS_EDITAVEIS:
@@ -421,8 +429,12 @@ async def atualizar_status(
     Valores aceitos: 'EM ANDAMENTO', 'FINALIZADA'.
     (A transição para 'ABERTA' é reservada à criação.)
 
+    Regras de negócio e RBAC:
+        - Apenas admin ou o próprio solicitante (autor) podem alterar o status.
+
     Raises:
         HTTP 400 — status inválido ou transição não permitida.
+        HTTP 403 — sem permissão para editar O.S. de outro usuário.
         HTTP 404 — O.S. não encontrada.
     """
     novo_status: str = payload.status.strip().upper()
@@ -445,6 +457,13 @@ async def atualizar_status(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Solicitação id={solicitacao_id} não encontrada.",
+        )
+
+    # Controle de Acesso (RBAC): Apenas admin ou o autor da solicitação
+    if current_user.role != ROLE_ADMIN and solicitacao.solicitante_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não tem permissão para editar uma O.S. criada por outro usuário.",
         )
 
     if solicitacao.status == "FINALIZADA" and novo_status != "FINALIZADA":
@@ -475,14 +494,25 @@ async def atualizar_status(
 async def deletar_solicitacao(
     solicitacao_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(_requer_auth),  # noqa: ARG001
+    current_user: User = Depends(_requer_auth),
 ) -> JSONResponse:
     """
     Exclui permanentemente uma solicitação do banco.
 
+    Regras de negócio e RBAC:
+        - Exclusivo para usuários com papel 'admin'.
+
     Raises:
+        HTTP 403 — usuário não possui permissão para excluir esta O.S.
         HTTP 404 — O.S. não encontrada.
     """
+    # Controle de Acesso (RBAC): Apenas admin pode excluir
+    if current_user.role != ROLE_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não tem permissão para excluir esta O.S.",
+        )
+
     solicitacao: Solicitacao | None = (
         db.query(Solicitacao)
         .filter(Solicitacao.id == solicitacao_id)
