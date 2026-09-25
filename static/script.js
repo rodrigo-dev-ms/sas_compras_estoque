@@ -386,6 +386,12 @@ async function atualizarOS() {
             body: JSON.stringify(payload),
         });
 
+        if (response.status === 403) {
+            const err = await response.json().catch(() => ({}));
+            window.alert(err.detail || 'Você não tem permissão para editar uma O.S. criada por outro usuário.');
+            return;
+        }
+
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));
             throw new Error(err.detail || `Erro HTTP ${response.status}`);
@@ -403,6 +409,13 @@ async function atualizarOS() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: novoStatus }),
                 });
+
+                if (respStatus.status === 403) {
+                    const err = await respStatus.json().catch(() => ({}));
+                    window.alert(err.detail || 'Você não tem permissão para editar uma O.S. criada por outro usuário.');
+                    return;
+                }
+
                 if (respStatus.ok) {
                     const osComStatus = await respStatus.json();
                     osAtualizada.status = osComStatus.status;
@@ -633,6 +646,13 @@ async function atualizarStatus(id, novoStatus) {
             body: JSON.stringify({ status: novoStatus }),
         });
 
+        if (response.status === 403) {
+            const err = await response.json().catch(() => ({}));
+            window.alert(err.detail || 'Você não tem permissão para editar uma O.S. criada por outro usuário.');
+            carregarSolicitacoes(filtroStatusAtual);
+            return;
+        }
+
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));
             throw new Error(err.detail || `Erro HTTP ${response.status}`);
@@ -666,6 +686,12 @@ async function deletarSolicitacao(id) {
         const response = await fetch(`${API_BASE}/${id}`, {
             method: 'DELETE',
         });
+
+        if (response.status === 403) {
+            const err = await response.json().catch(() => ({}));
+            window.alert(err.detail || 'Você não tem permissão para excluir esta O.S.');
+            return;
+        }
 
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));
