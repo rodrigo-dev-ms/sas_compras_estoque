@@ -13,8 +13,15 @@
          ══════════════════════════════════════════════════════════════════════ -->
     <header class="app-navbar hide-on-export">
         <div class="navbar-content">
-            <span class="navbar-brand">Quicker Compras</span>
+            <a href="javascript:void(0)" class="navbar-brand" onclick="resetarParaInicio()" title="Voltar ao início (Nova Solicitação)" style="text-decoration: none; cursor: pointer;">
+                Quicker Compras
+            </a>
             <div class="navbar-right">
+                {% if user_role == 'admin' %}
+                <button type="button" class="btn-action-sm" onclick="trocarAba('tab-usuarios')" title="Painel de Gestão de Usuários" style="border-color: var(--accent-primary); color: #93c5fd;">
+                    Gestão de Usuários
+                </button>
+                {% endif %}
                 <span class="user-badge">
                     Conectado como: <strong>{{ user | capitalize }}</strong>
                     <span class="role-tag">{{ user_role }}</span>
@@ -27,7 +34,7 @@
     </header>
 
     <!-- ══════════════════════════════════════════════════════════════════════
-         ABAS — Navegação entre Nova Solicitação e Histórico
+         ABAS — Navegação entre Nova Solicitação, Histórico e Gestão
          ══════════════════════════════════════════════════════════════════════ -->
     <div class="container">
         <nav class="tabs hide-on-export" id="nav-tabs">
@@ -40,6 +47,12 @@
                 Histórico
                 <span class="tab-badge" id="tab-count-badge">0</span>
             </button>
+            {% if user_role == 'admin' %}
+            <button type="button" class="tab" data-tab="tab-usuarios" onclick="trocarAba('tab-usuarios')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Gestão de Usuários
+            </button>
+            {% endif %}
         </nav>
 
         <!-- ══════════════════════════════════════════════════════════════════
@@ -178,6 +191,22 @@
                     <p class="doc-subtitle">Todas as O.S. registradas no sistema — ordenadas pela mais recente</p>
                 </header>
 
+                <!-- Botões de Filtros Rápidos -->
+                <div class="historico-filters hide-on-export" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <button type="button" class="btn-action-sm filter-btn active" data-status="" onclick="filtrarHistorico('')" style="background-color: var(--accent-primary); color: #ffffff; border-color: var(--accent-primary);">
+                        Todas
+                    </button>
+                    <button type="button" class="btn-action-sm filter-btn" data-status="ABERTA" onclick="filtrarHistorico('ABERTA')">
+                        Abertas
+                    </button>
+                    <button type="button" class="btn-action-sm filter-btn" data-status="EM ANDAMENTO" onclick="filtrarHistorico('EM ANDAMENTO')">
+                        Em Andamento
+                    </button>
+                    <button type="button" class="btn-action-sm filter-btn" data-status="FINALIZADA" onclick="filtrarHistorico('FINALIZADA')">
+                        Finalizadas
+                    </button>
+                </div>
+
                 <!-- Indicador de carregamento -->
                 <div id="historico-loading" class="loading-indicator">
                     <div class="spinner"></div>
@@ -189,8 +218,8 @@
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
                     </svg>
-                    <p>Nenhuma solicitação encontrada.</p>
-                    <button type="button" class="btn-add" onclick="trocarAba('tab-nova')">Criar primeira solicitação</button>
+                    <p>Nenhuma solicitação encontrada com o filtro selecionado.</p>
+                    <button type="button" class="btn-add" onclick="trocarAba('tab-nova')">Criar solicitação</button>
                 </div>
 
                 <!-- Tabela de listagem -->
@@ -200,6 +229,7 @@
                             <tr>
                                 <th style="width:70px;">O.S.</th>
                                 <th style="width:100px;">Data</th>
+                                <th style="width:120px;">Solicitante</th>
                                 <th>Destino</th>
                                 <th>Objetivo</th>
                                 <th style="width:140px;">Status</th>
@@ -213,10 +243,199 @@
                 </div>
             </div>
         </section>
+
+        <!-- ══════════════════════════════════════════════════════════════════
+             ABA 3 — GESTÃO DE USUÁRIOS (Somente Administradores)
+             ══════════════════════════════════════════════════════════════════ -->
+        {% if user_role == 'admin' %}
+        <section id="tab-usuarios" class="tab-content">
+            <div class="document-sheet">
+                <header class="doc-header">
+                    <h2>Gestão de Usuários</h2>
+                    <p class="doc-subtitle">Painel administrativo de cadastro, alteração e inativação de contas</p>
+                </header>
+
+                <!-- Formulário de Usuário (Criar / Editar) -->
+                <div style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
+                    <h4 id="form-usuario-titulo" style="margin-bottom: 14px; color: var(--text-primary); font-size: 0.95rem;">Cadastrar Novo Usuário</h4>
+                    <form id="form-usuario" onsubmit="event.preventDefault(); salvarUsuario();">
+                        <input type="hidden" id="usuario-id" value="">
+                        <div class="grid-2">
+                            <div class="input-group">
+                                <label for="usuario-username">NOME DE USUÁRIO</label>
+                                <input id="usuario-username" type="text" placeholder="Ex: roberto.silva" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="usuario-password">SENHA</label>
+                                <input id="usuario-password" type="password" placeholder="Mínimo 6 caracteres (em branco para não alterar)">
+                            </div>
+                        </div>
+                        <div class="grid-2 mt-3">
+                            <div class="input-group">
+                                <label for="usuario-role">PERFIL / ROLE</label>
+                                <select id="usuario-role">
+                                    <option value="solicitante">Solicitante</option>
+                                    <option value="estoque">Estoque</option>
+                                    <option value="admin">Administrador</option>
+                                    <option value="inativo">Inativo</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="justify-content: flex-end;">
+                                <div style="display: flex; gap: 10px; margin-top: auto;">
+                                    <button type="submit" class="btn-save" id="btn-salvar-usuario">
+                                        Salvar Usuário
+                                    </button>
+                                    <button type="button" class="btn-secondary" id="btn-cancelar-usuario" onclick="limparFormUsuario()" style="display: none;">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Tabela de Usuários -->
+                <div class="table-section-header">
+                    <h4>USUÁRIOS CADASTRADOS</h4>
+                    <span class="table-counter" id="usuarios-counter">0 usuário(s)</span>
+                </div>
+
+                <div id="usuarios-loading" class="loading-indicator" style="display: none;">
+                    <div class="spinner"></div>
+                    <span>Carregando usuários...</span>
+                </div>
+
+                <div class="table-responsive" id="usuarios-tabela-wrapper">
+                    <table id="tabela-usuarios" class="tabela-historico">
+                        <thead>
+                            <tr>
+                                <th style="width: 70px;">ID</th>
+                                <th>Usuário</th>
+                                <th style="width: 150px;">Perfil</th>
+                                <th style="width: 120px;">Status</th>
+                                <th style="width: 180px; text-align: center;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-usuarios">
+                            <!-- Linhas renderizadas via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        {% endif %}
     </div>
 
     <!-- Toast de notificações -->
     <div id="toast-container" class="toast-container"></div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         TEMPLATE DE IMPRESSÃO / EXPORTAÇÃO PDF (DOCUMENTO FORMAL EM PAPEL)
+         ══════════════════════════════════════════════════════════════════════ -->
+    <div id="pdf-print-template" style="display: none; background: #fff; color: #000; padding: 20px;">
+        <div class="pdf-container">
+            <!-- Cabeçalho -->
+            <table class="pdf-table-header">
+                <tr>
+                    <td style="width: 70%; vertical-align: middle;">
+                        <h2 class="pdf-company-title">Quicker Telecom</h2>
+                        <h3 class="pdf-doc-title">Quicker Compras — Solicitação de Estoque</h3>
+                        <p class="pdf-doc-subtitle">Documento de requisição interna de materiais e equipamentos</p>
+                    </td>
+                    <td style="width: 30%; text-align: right; vertical-align: middle;">
+                        <div class="pdf-os-badge">
+                            <span class="pdf-badge-label">NÚMERO DA O.S.</span>
+                            <strong class="pdf-badge-value" id="print-os-numero">—</strong>
+                        </div>
+                        <div class="pdf-os-status">
+                            <span class="pdf-badge-label">STATUS:</span>
+                            <strong id="print-os-status">ABERTA</strong>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Campos Gerais / Formulário -->
+            <table class="pdf-table-info">
+                <tr>
+                    <td style="width: 50%;">
+                        <span class="pdf-field-label">DATA DA SOLICITAÇÃO</span>
+                        <span class="pdf-field-value" id="print-data">—</span>
+                    </td>
+                    <td style="width: 50%;">
+                        <span class="pdf-field-label">SOLICITANTE</span>
+                        <span class="pdf-field-value" id="print-solicitante">—</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <span class="pdf-field-label">DESTINO</span>
+                        <span class="pdf-field-value" id="print-destino">—</span>
+                    </td>
+                    <td>
+                        <span class="pdf-field-label">SETOR</span>
+                        <span class="pdf-field-value" id="print-setor">—</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2">
+                        <span class="pdf-field-label">OBJETIVO</span>
+                        <span class="pdf-field-value" id="print-objetivo">—</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2">
+                        <span class="pdf-field-label">JUSTIFICATIVA</span>
+                        <span class="pdf-field-value" id="print-justificativa">—</span>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Relação de Materiais -->
+            <div class="pdf-section-title">LISTA DE MATERIAIS E EQUIPAMENTOS</div>
+            <table class="pdf-table-items">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">#</th>
+                        <th style="width: 32%;">Material</th>
+                        <th>Descrição Detalhada</th>
+                        <th style="width: 60px; text-align: center;">Un</th>
+                        <th style="width: 80px; text-align: right;">Qtd Sol.</th>
+                    </tr>
+                </thead>
+                <tbody id="print-tbody-materiais">
+                    <!-- Inserido dinamicamente via JavaScript -->
+                </tbody>
+            </table>
+
+            <!-- Observações Gerais -->
+            <div class="pdf-obs-box">
+                <span class="pdf-field-label">OBSERVAÇÕES GERAIS</span>
+                <div class="pdf-field-value" id="print-observacoes">—</div>
+            </div>
+
+            <!-- Seção de Assinaturas -->
+            <table class="pdf-table-signatures">
+                <tr>
+                    <td class="pdf-signature-cell">
+                        <div class="pdf-sig-line"></div>
+                        <p class="pdf-sig-role">Solicitante</p>
+                        <p class="pdf-sig-name" id="print-sig-solicitante"></p>
+                    </td>
+                    <td class="pdf-signature-cell">
+                        <div class="pdf-sig-line"></div>
+                        <p class="pdf-sig-role">Responsável pelo Estoque</p>
+                        <p class="pdf-sig-name">Visto / Conferência</p>
+                    </td>
+                    <td class="pdf-signature-cell">
+                        <div class="pdf-sig-line"></div>
+                        <p class="pdf-sig-role">Aprovação / Gerência</p>
+                        <p class="pdf-sig-name">Assinatura / Carimbo</p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
 
     <script src="/static/script.js"></script>
 </body>

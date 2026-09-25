@@ -883,3 +883,195 @@ table#tabela-materiais td select {
         padding: 10px 14px;
     }
 }
+
+/* ==========================================================================
+   TEMPLATE DE IMPRESSÃO / EXPORTAÇÃO PDF (DOCUMENTO FORMAL EM PAPEL)
+   ========================================================================== */
+#pdf-print-template {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    padding: 24px !important;
+    box-sizing: border-box !important;
+}
+
+#pdf-print-template * {
+    color: #000000 !important;
+    box-sizing: border-box !important;
+}
+
+.pdf-container {
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    background: #ffffff !important;
+}
+
+.pdf-table-header {
+    width: 100%;
+    border-collapse: collapse;
+    border-bottom: 2px solid #000000;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+}
+
+.pdf-table-header td {
+    padding: 6px 0;
+    border: none !important;
+}
+
+.pdf-company-title {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    margin: 0 0 4px 0 !important;
+    letter-spacing: -0.5px;
+    text-transform: uppercase;
+}
+
+.pdf-doc-title {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    margin: 0 0 2px 0 !important;
+}
+
+.pdf-doc-subtitle {
+    font-size: 10px !important;
+    color: #444444 !important;
+    margin: 0 !important;
+}
+
+.pdf-os-badge {
+    border: 1px solid #000000;
+    padding: 6px 14px;
+    display: inline-block;
+    text-align: center;
+    background-color: #f7f7f7 !important;
+    margin-bottom: 6px;
+}
+
+.pdf-badge-label {
+    display: block;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px;
+}
+
+.pdf-badge-value {
+    font-size: 14px !important;
+    font-family: "Courier New", Courier, monospace !important;
+}
+
+.pdf-os-status {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+}
+
+/* Tabelas de campos */
+.pdf-table-info {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #000000;
+    margin-bottom: 16px;
+}
+
+.pdf-table-info td {
+    border: 1px solid #000000 !important;
+    padding: 6px 10px !important;
+    vertical-align: top;
+}
+
+.pdf-field-label {
+    display: block;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    color: #333333 !important;
+    margin-bottom: 2px;
+}
+
+.pdf-field-value {
+    font-size: 11px !important;
+    min-height: 16px;
+    word-break: break-word;
+}
+
+/* Tabela de Materiais */
+.pdf-section-title {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    background-color: #e5e5e5 !important;
+    border: 1px solid #000000;
+    border-bottom: none;
+    padding: 5px 8px;
+    letter-spacing: 0.5px;
+}
+
+.pdf-table-items {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #000000;
+    margin-bottom: 16px;
+}
+
+.pdf-table-items th {
+    background-color: #f0f0f0 !important;
+    border: 1px solid #000000 !important;
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+.pdf-table-items td {
+    border: 1px solid #000000 !important;
+    padding: 5px 8px !important;
+    font-size: 10px !important;
+}
+
+/* Observações */
+.pdf-obs-box {
+    border: 1px solid #000000;
+    padding: 8px 10px;
+    margin-bottom: 24px;
+    min-height: 44px;
+}
+
+/* Assinaturas */
+.pdf-table-signatures {
+    width: 100%;
+    border-collapse: collapse;
+    border: none;
+    margin-top: 36px;
+}
+
+.pdf-signature-cell {
+    width: 33.33%;
+    text-align: center;
+    vertical-align: bottom;
+    padding: 0 16px;
+    border: none !important;
+}
+
+.pdf-sig-line {
+    border-top: 1px solid #000000;
+    width: 100%;
+    margin-bottom: 6px;
+}
+
+.pdf-sig-role {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    margin: 0 0 2px 0 !important;
+}
+
+.pdf-sig-name {
+    font-size: 9px !important;
+    color: #555555 !important;
+    margin: 0 !important;
+}
+

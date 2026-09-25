@@ -101,7 +101,25 @@ class UsuarioCreate(BaseModel):
     password: str = Field(..., min_length=6, max_length=255)
     role: str = Field(
         default="solicitante",
-        description="admin | solicitante | estoque",
+        description="admin | solicitante | estoque | inativo",
+    )
+
+
+class UsuarioUpdate(BaseModel):
+    """
+    Payload de atualização de usuário (PUT /api/usuarios/{usuario_id}).
+    Apenas administradores. Permite alterar username, senha, role ou inativar.
+    """
+
+    username: str | None = Field(default=None, min_length=3, max_length=100)
+    password: str | None = Field(default=None, min_length=6, max_length=255)
+    role: str | None = Field(
+        default=None,
+        description="admin | solicitante | estoque | inativo",
+    )
+    is_active: bool | None = Field(
+        default=None,
+        description="Sinalizador opcional de ativação/inativação",
     )
 
 

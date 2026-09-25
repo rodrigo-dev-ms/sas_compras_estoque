@@ -1,8 +1,8 @@
 /**
- * @fileoverview Lógica de manipulação do DOM, integração com API RESTful
- * e exportação PDF para o MVP Quicker Compras — Quicker Telecom.
+ * @fileoverview Lógica de manipulação do DOM, integração com API RESTful,
+ * gestão de usuários (admin), filtros de histórico e exportação PDF.
  * @author Quicker Telecom Dev Team
- * @version 2.1.0
+ * @version 2.2.0
  */
 
 'use strict';
@@ -11,7 +11,8 @@
 // CONSTANTES E ESTADO
 // ═══════════════════════════════════════════════════════════════════════════
 
-const API_BASE = '/api/solicitacoes';
+const API_BASE     = '/api/solicitacoes';
+const API_USUARIOS = '/api/usuarios';
 
 /** @type {number} Contador global para IDs únicos de linha de material */
 let contador = 1;
@@ -22,14 +23,17 @@ let solicitacaoAtualId = null;
 /** @type {Array<object>} Cache local das solicitações carregadas */
 let solicitacoesCache = [];
 
+/** @type {string} Filtro de status ativo para o histórico */
+let filtroStatusAtual = '';
+
 // ═══════════════════════════════════════════════════════════════════════════
-// SISTEMA DE ABAS
+// SISTEMA DE ABAS E NAVEGAÇÃO
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * Alterna a aba ativa no dashboard.
- * Ao abrir a aba de histórico, dispara o carregamento das solicitações.
- * @param {string} tabId — ID da seção a ativar ('tab-nova' ou 'tab-historico')
+ * Carrega dinamicamente os dados da seção selecionada.
+ * @param {string} tabId — ID da seção a ativar ('tab-nova', 'tab-historico' ou 'tab-usuarios')
  */
 function trocarAba(tabId) {
     document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
@@ -42,7 +46,19 @@ function trocarAba(tabId) {
 
     if (tabId === 'tab-historico') {
         carregarSolicitacoes();
+    } else if (tabId === 'tab-usuarios') {
+        carregarUsuarios();
     }
+}
+
+/**
+ * Reseta a interface inteira para a tela inicial (Nova Solicitação).
+ * Vinculado ao clique no logotipo "Quicker Compras" no topo.
+ */
+function resetarParaInicio() {
+    limparFormulario();
+    trocarAba('tab-nova');
+    _mostrarToast('Interface reiniciada para Nova Solicitação.', 'info');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -254,13 +270,14 @@ function _mostrarToast(mensagem, tipo = 'info', duracao = 3500) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// INTEGRAÇÃO COM API — FLUXO DE CRIAÇÃO E ATUALIZAÇÃO
+// INTEGRAÇÃO COM API — FLUXO DE CRIAÇÃO E ATUALIZAÇÃO DE O.S.
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * FLUXO DE CRIAÇÃO:
  * Dispara o POST /api/solicitacoes.
- * Em caso de sucesso, transita imediatamente para o estado de edição da O.S. criada.
+ * Ao sucesso, exibe confirm: se sim, ativa modo de edição (liberando PDF);
+ * se não, limpa o formulário e retorna ao estado inicial.
  */
 async function abrirOS() {
     const destino       = document.getElementById('destino')?.value.trim();
@@ -304,12 +321,22 @@ async function abrirOS() {
         }
 
         const novaOS = await response.json();
-        _mostrarToast(`O.S. #${novaOS.id} aberta com sucesso!`, 'success');
-
-        // Transitar para o estado de edição com os dados retornados
-        setModoVisualizacao('edicao', novaOS);
-        _preencherFormulario(novaOS);
         _atualizarBadgeHistorico();
+
+        const desejaExportar = confirm(
+            `O.S. #${novaOS.id} aberta com sucesso!\n\nDeseja exportar o PDF agora?`
+        );
+
+        if (desejaExportar) {
+            // Se SIM: ativa o modo de edição (libera exportação de PDF)
+            setModoVisualizacao('edicao', novaOS);
+            _preencherFormulario(novaOS);
+            _mostrarToast(`O.S. #${novaOS.id} aberta. Modo de edição liberado.`, 'success');
+        } else {
+            // Se NÃO: limpa o formulário e volta para o estado inicial
+            limparFormulario();
+            _mostrarToast(`O.S. #${novaOS.id} salva com sucesso. Formulário limpo.`, 'success');
+        }
 
     } catch (error) {
         console.error('[abrirOS]', error);
@@ -404,7 +431,7 @@ const salvarSolicitacao = abrirOS;
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Preenche o formulário com os dados de uma O.S. existente e troca a view para o estado de edição.
+ * Preenche o formulário com os dados de uma O.S. existente.
  * @param {object} s — Dados completos da solicitação
  */
 function _preencherFormulario(s) {
@@ -418,7 +445,9 @@ function _preencherFormulario(s) {
     const tbody       = document.getElementById('tbody-materiais');
 
     if (dataInput && s.data_criacao) dataInput.value = s.data_criacao;
-    if (solicitante && s.solicitante_nome) solicitante.value = s.solicitante_nome;
+    if (solicitante) {
+        solicitante.value = s.solicitante_nome || solicitante.value;
+    }
     if (destino)  destino.value  = s.destino || '';
     if (setor)    setor.value    = s.setor || '';
     if (objetivo) objetivo.value = s.objetivo || '';
@@ -462,31 +491,68 @@ async function carregarParaEdicao(id) {
         return;
     }
 
-    // Preenche o formulário e ativa o modo de edição
     _preencherFormulario(os);
     setModoVisualizacao('edicao', os);
-
-    // Navega para a aba do formulário
     trocarAba('tab-nova');
     _mostrarToast(`O.S. #${id} carregada no formulário.`, 'info');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FILTROS E LISTAGEM DO HISTÓRICO
+// ═══════════════════════════════════════════════════════════════════════════
+
 /**
- * Busca todas as solicitações via GET e renderiza na tabela do histórico.
+ * Aplica filtro de status no histórico e atualiza a interface.
+ * @param {string} status — '' (Todas) ou 'ABERTA' | 'EM ANDAMENTO' | 'FINALIZADA'
  */
-async function carregarSolicitacoes() {
+function filtrarHistorico(status) {
+    filtroStatusAtual = status || '';
+
+    // Atualiza botões visuais de filtro
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        const btnStatus = btn.getAttribute('data-status') || '';
+        if (btnStatus === filtroStatusAtual) {
+            btn.classList.add('active');
+            btn.style.backgroundColor = 'var(--accent-primary)';
+            btn.style.color = '#ffffff';
+            btn.style.borderColor = 'var(--accent-primary)';
+        } else {
+            btn.classList.remove('active');
+            btn.style.backgroundColor = 'transparent';
+            btn.style.color = 'var(--text-secondary)';
+            btn.style.borderColor = 'var(--border-color)';
+        }
+    });
+
+    carregarSolicitacoes(filtroStatusAtual);
+}
+
+/**
+ * Busca as solicitações via GET passando o query parameter ?status= caso informado.
+ * Renderiza o solicitante_nome na tabela.
+ * @param {string|null} [statusFiltro=null]
+ */
+async function carregarSolicitacoes(statusFiltro = null) {
     const loading = document.getElementById('historico-loading');
     const vazio   = document.getElementById('historico-vazio');
     const wrapper = document.getElementById('historico-tabela-wrapper');
     const tbody   = document.getElementById('tbody-historico');
+
+    if (statusFiltro !== null) {
+        filtroStatusAtual = statusFiltro;
+    }
 
     if (loading) loading.style.display = '';
     if (vazio)   vazio.style.display   = 'none';
     if (wrapper) wrapper.style.display = 'none';
 
     try {
-        const response = await fetch(API_BASE);
+        let url = API_BASE;
+        if (filtroStatusAtual) {
+            url += `?status=${encodeURIComponent(filtroStatusAtual)}`;
+        }
 
+        const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Erro HTTP ${response.status}`);
         }
@@ -503,8 +569,6 @@ async function carregarSolicitacoes() {
             return;
         }
 
-        solicitacoes.sort((a, b) => b.id - a.id);
-
         tbody.innerHTML = '';
         for (const s of solicitacoes) {
             const tr = document.createElement('tr');
@@ -514,6 +578,7 @@ async function carregarSolicitacoes() {
             tr.innerHTML = `
                 <td><span class="os-id">#${String(s.id).padStart(3, '0')}</span></td>
                 <td>${s.data_criacao || '—'}</td>
+                <td><strong>${_esc(s.solicitante_nome || '—')}</strong></td>
                 <td>${_esc(s.destino)}</td>
                 <td>${_esc(s.objetivo)}</td>
                 <td>
@@ -540,7 +605,6 @@ async function carregarSolicitacoes() {
                 </td>
             `;
 
-            // Ao clicar na linha da O.S., também carrega para edição
             tr.addEventListener('click', (e) => {
                 if (e.target.closest('button') || e.target.closest('select')) return;
                 carregarParaEdicao(s.id);
@@ -579,7 +643,6 @@ async function atualizarStatus(id, novoStatus) {
 
         _mostrarToast(`O.S. #${id} → ${novoStatus}`, 'success');
 
-        // Se for a O.S. atualmente aberta no formulário, sincroniza o select
         if (solicitacaoAtualId === id) {
             const selectForm = document.getElementById('select-status-form');
             if (selectForm) {
@@ -591,7 +654,7 @@ async function atualizarStatus(id, novoStatus) {
     } catch (error) {
         console.error('[atualizarStatus]', error);
         _mostrarToast(`Falha ao atualizar status: ${error.message}`, 'error');
-        carregarSolicitacoes();
+        carregarSolicitacoes(filtroStatusAtual);
     }
 }
 
@@ -614,12 +677,11 @@ async function deletarSolicitacao(id) {
 
         _mostrarToast(`O.S. #${id} excluída.`, 'info');
 
-        // Se a O.S. excluída estava aberta no formulário, resetar para nova solicitação
         if (solicitacaoAtualId === id) {
             limparFormulario();
         }
 
-        carregarSolicitacoes();
+        carregarSolicitacoes(filtroStatusAtual);
 
     } catch (error) {
         console.error('[deletarSolicitacao]', error);
@@ -636,11 +698,247 @@ async function _atualizarBadgeHistorico() {
         const response = await fetch(API_BASE);
         if (response.ok) {
             const data = await response.json();
-            solicitacoesCache = data;
             const badge = document.getElementById('tab-count-badge');
             if (badge) badge.textContent = data.length;
         }
     } catch { /* silencioso */ }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GESTÃO DE USUÁRIOS (APENAS ADMINISTRADOR)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Busca todos os usuários via GET e renderiza na tabela.
+ */
+async function carregarUsuarios() {
+    const loading = document.getElementById('usuarios-loading');
+    const tbody   = document.getElementById('tbody-usuarios');
+    const counter = document.getElementById('usuarios-counter');
+    if (!tbody) return;
+
+    if (loading) loading.style.display = '';
+
+    try {
+        const response = await fetch(API_USUARIOS);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${response.status}`);
+        }
+
+        const usuarios = await response.json();
+        if (counter) counter.textContent = `${usuarios.length} usuário(s)`;
+
+        tbody.innerHTML = '';
+        usuarios.forEach(u => {
+            const tr = document.createElement('tr');
+            const isInativo = (u.role || '').toLowerCase() === 'inativo';
+            const statusClass = isInativo ? 'status-andamento' : 'status-aberta';
+            const statusLabel = isInativo ? 'INATIVO' : 'ATIVO';
+
+            tr.innerHTML = `
+                <td><span class="os-id">#${String(u.id).padStart(3, '0')}</span></td>
+                <td><strong>${_esc(u.username)}</strong></td>
+                <td><span class="role-tag">${_esc(u.role)}</span></td>
+                <td><span class="badge-status ${statusClass}">${statusLabel}</span></td>
+                <td>
+                    <div class="actions-cell">
+                        <button type="button" class="btn-action-sm" title="Editar"
+                                onclick="editarUsuario(${u.id}, '${_escAttr(u.username)}', '${_escAttr(u.role)}')">
+                            Editar
+                        </button>
+                        <button type="button" class="btn-action-sm ${isInativo ? '' : 'danger'}" title="${isInativo ? 'Ativar' : 'Inativar'}"
+                                onclick="alternarStatusUsuario(${u.id}, '${_escAttr(u.role)}')">
+                            ${isInativo ? 'Ativar' : 'Inativar'}
+                        </button>
+                        <button type="button" class="btn-action-sm danger" title="Excluir"
+                                onclick="deletarUsuario(${u.id})">
+                            Excluir
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error('[carregarUsuarios]', err);
+        _mostrarToast(`Falha ao carregar usuários: ${err.message}`, 'error');
+    } finally {
+        if (loading) loading.style.display = 'none';
+    }
+}
+
+/**
+ * Salva novo usuário (POST) ou atualiza existente (PUT).
+ */
+async function salvarUsuario() {
+    const idInput   = document.getElementById('usuario-id');
+    const userIn    = document.getElementById('usuario-username');
+    const passIn    = document.getElementById('usuario-password');
+    const roleIn    = document.getElementById('usuario-role');
+
+    const id        = idInput?.value ? parseInt(idInput.value, 10) : null;
+    const username  = userIn?.value.trim();
+    const password  = passIn?.value.trim();
+    const role      = roleIn?.value;
+
+    if (!username) {
+        _mostrarToast('Informe o nome de usuário.', 'error');
+        return;
+    }
+
+    if (!id && (!password || password.length < 6)) {
+        _mostrarToast('A senha inicial é obrigatória (mínimo 6 caracteres).', 'error');
+        return;
+    }
+
+    try {
+        if (!id) {
+            // POST - Criar usuário
+            const response = await fetch(API_USUARIOS, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, role }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${response.status}`);
+            }
+
+            _mostrarToast(`Usuário '${username}' criado com sucesso!`, 'success');
+        } else {
+            // PUT - Atualizar usuário
+            const payload = { username, role };
+            if (password) {
+                payload.password = password;
+            }
+
+            const response = await fetch(`${API_USUARIOS}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${response.status}`);
+            }
+
+            _mostrarToast(`Usuário #${id} atualizado com sucesso!`, 'success');
+        }
+
+        limparFormUsuario();
+        carregarUsuarios();
+
+    } catch (err) {
+        console.error('[salvarUsuario]', err);
+        _mostrarToast(`Erro ao salvar usuário: ${err.message}`, 'error');
+    }
+}
+
+/**
+ * Preenche o formulário de usuário para modo de edição.
+ * @param {number} id
+ * @param {string} username
+ * @param {string} role
+ */
+function editarUsuario(id, username, role) {
+    const idInput     = document.getElementById('usuario-id');
+    const userIn      = document.getElementById('usuario-username');
+    const passIn      = document.getElementById('usuario-password');
+    const roleIn      = document.getElementById('usuario-role');
+    const titulo      = document.getElementById('form-usuario-titulo');
+    const btnSalvar   = document.getElementById('btn-salvar-usuario');
+    const btnCancelar = document.getElementById('btn-cancelar-usuario');
+
+    if (idInput)   idInput.value   = id;
+    if (userIn)    userIn.value    = username;
+    if (passIn)    passIn.value    = '';
+    if (roleIn)    roleIn.value    = role;
+    if (titulo)    titulo.textContent = `Editar Usuário #${id} (${username})`;
+    if (btnSalvar) btnSalvar.textContent = 'Salvar Alterações';
+    if (btnCancelar) btnCancelar.style.display = 'inline-flex';
+
+    userIn?.focus();
+}
+
+/**
+ * Alterna a role de um usuário entre ativo ('solicitante') e 'inativo' via PUT.
+ * @param {number} id
+ * @param {string} roleAtual
+ */
+async function alternarStatusUsuario(id, roleAtual) {
+    const novaRole = (roleAtual || '').toLowerCase() === 'inativo' ? 'solicitante' : 'inativo';
+    const acao = novaRole === 'inativo' ? 'inativar' : 'ativar';
+
+    if (!confirm(`Deseja realmente ${acao} este usuário?`)) return;
+
+    try {
+        const response = await fetch(`${API_USUARIOS}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: novaRole }),
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${response.status}`);
+        }
+
+        _mostrarToast(`Usuário #${id} ${acao === 'inativar' ? 'inativado' : 'ativado'} com sucesso.`, 'success');
+        carregarUsuarios();
+    } catch (err) {
+        console.error('[alternarStatusUsuario]', err);
+        _mostrarToast(`Erro ao alterar status: ${err.message}`, 'error');
+    }
+}
+
+/**
+ * Remove permanentemente um usuário via DELETE.
+ * @param {number} id
+ */
+async function deletarUsuario(id) {
+    if (!confirm(`Excluir permanentemente o usuário #${id}?`)) return;
+
+    try {
+        const response = await fetch(`${API_USUARIOS}/${id}`, {
+            method: 'DELETE',
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${response.status}`);
+        }
+
+        _mostrarToast(`Usuário #${id} excluído com sucesso.`, 'info');
+        carregarUsuarios();
+    } catch (err) {
+        console.error('[deletarUsuario]', err);
+        _mostrarToast(`Erro ao excluir: ${err.message}`, 'error');
+    }
+}
+
+/**
+ * Reseta o formulário de usuário para criação.
+ */
+function limparFormUsuario() {
+    const idInput     = document.getElementById('usuario-id');
+    const userIn      = document.getElementById('usuario-username');
+    const passIn      = document.getElementById('usuario-password');
+    const roleIn      = document.getElementById('usuario-role');
+    const titulo      = document.getElementById('form-usuario-titulo');
+    const btnSalvar   = document.getElementById('btn-salvar-usuario');
+    const btnCancelar = document.getElementById('btn-cancelar-usuario');
+
+    if (idInput)   idInput.value   = '';
+    if (userIn)    userIn.value    = '';
+    if (passIn)    passIn.value    = '';
+    if (roleIn)    roleIn.value    = 'solicitante';
+    if (titulo)    titulo.textContent = 'Cadastrar Novo Usuário';
+    if (btnSalvar) btnSalvar.textContent = 'Salvar Usuário';
+    if (btnCancelar) btnCancelar.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -721,116 +1019,122 @@ function _escAttr(val) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EXPORTAÇÃO PARA PDF
+// EXPORTAÇÃO PARA PDF (BASEADA EM TEMPLATE IMPRESSO)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Congela os valores dos campos no DOM para html2canvas capturar.
- * @param {NodeListOf<HTMLInputElement|HTMLTextAreaElement>} fields
- * @private
- */
-function _fixarValoresCampos(fields) {
-    fields.forEach(field => {
-        if (field.tagName === 'TEXTAREA') {
-            field.innerHTML = field.value;
-        } else {
-            field.setAttribute('value', field.value);
-        }
-    });
-}
-
-/**
- * Aplica estilo "formulário impresso" removendo bordas e backgrounds.
- * @param {NodeListOf<HTMLElement>} fields
- * @returns {Array<{field: HTMLElement, snapshot: object}>}
- * @private
- */
-function _aplicarEstiloImpressao(fields) {
-    return Array.from(fields).map(field => {
-        const snapshot = {
-            border:          field.style.border,
-            backgroundColor: field.style.backgroundColor,
-            color:           field.style.color,
-            outline:         field.style.outline,
-            boxShadow:       field.style.boxShadow,
-        };
-        field.style.border          = 'none';
-        field.style.backgroundColor = 'transparent';
-        field.style.color           = '#f5f5f5';
-        field.style.outline         = 'none';
-        field.style.boxShadow       = 'none';
-        return { field, snapshot };
-    });
-}
-
-/**
- * Restaura os estilos inline originais dos campos.
- * @param {Array<{field: HTMLElement, snapshot: object}>} snapshots
- * @private
- */
-function _restaurarEstilos(snapshots) {
-    snapshots.forEach(({ field, snapshot }) => {
-        Object.assign(field.style, snapshot);
-    });
-}
-
-/**
- * Exporta a área `#pdf-area` como PDF usando html2pdf.js.
+ * Exporta o documento formal como PDF a partir do #pdf-print-template.
+ * Coleta os valores do formulário, injeta no template limpo, oculta a interface
+ * escura temporariamente e gera o PDF idêntico a um documento físico de papel.
  */
 async function exportarPDF() {
-    const element = document.getElementById('pdf-area');
-    if (!element) {
-        console.warn('[exportarPDF] Elemento #pdf-area não encontrado.');
+    const template  = document.getElementById('pdf-print-template');
+    const container = document.querySelector('.container');
+    const navbar    = document.querySelector('.app-navbar');
+
+    if (!template) {
+        console.error('[exportarPDF] Elemento #pdf-print-template não encontrado.');
+        _mostrarToast('Erro ao exportar PDF: template não encontrado.', 'error');
         return;
     }
 
-    const elementosOcultos = element.querySelectorAll('.hide-on-export');
-    elementosOcultos.forEach(el => { el.style.display = 'none'; });
+    // a) Coletar os valores atuais dos inputs do #form-estoque
+    const dataSol       = document.getElementById('data-solicitacao')?.value || '';
+    const solicitante   = document.getElementById('solicitante')?.value || '';
+    const destino       = document.getElementById('destino')?.value || '';
+    const setor         = document.getElementById('setor')?.value || '';
+    const objetivo      = document.getElementById('objetivo')?.value || '';
+    const justificativa = document.getElementById('justificativa')?.value || '';
+    const observacoes   = document.getElementById('observacoes')?.value || '';
+    const selectStatus  = document.getElementById('select-status-form');
+    const statusAtual   = selectStatus ? selectStatus.value : 'ABERTA';
 
-    const selectRestore = [];
-    element.querySelectorAll('select').forEach(select => {
-        const span = document.createElement('span');
-        const texto = select.options[select.selectedIndex]?.text || select.value;
+    let dataFormatada = dataSol;
+    if (dataSol && dataSol.includes('-')) {
+        const [ano, mes, dia] = dataSol.split('-');
+        dataFormatada = `${dia}/${mes}/${ano}`;
+    }
 
-        span.textContent = texto;
-        span.className   = `badge-status ${_classeStatus(select.value)}`;
-        span.setAttribute('data-pdf-placeholder', 'true');
+    const materiais = _coletarMateriais();
 
-        select.parentNode.insertBefore(span, select);
-        select.style.display = 'none';
+    // b) Injetar esses valores no #pdf-print-template
+    const printNumero   = document.getElementById('print-os-numero');
+    const printStatus   = document.getElementById('print-os-status');
+    const printData     = document.getElementById('print-data');
+    const printSol      = document.getElementById('print-solicitante');
+    const printDest     = document.getElementById('print-destino');
+    const printSetor    = document.getElementById('print-setor');
+    const printObj      = document.getElementById('print-objetivo');
+    const printJust     = document.getElementById('print-justificativa');
+    const printObs      = document.getElementById('print-observacoes');
+    const printSigSol   = document.getElementById('print-sig-solicitante');
+    const printTbody    = document.getElementById('print-tbody-materiais');
 
-        selectRestore.push({ select, span });
-    });
+    const osLabel = solicitacaoAtualId ? `#${String(solicitacaoAtualId).padStart(3, '0')}` : 'S/N (NOVA)';
+    if (printNumero) printNumero.textContent = osLabel;
+    if (printStatus) printStatus.textContent = statusAtual;
+    if (printData)   printData.textContent   = dataFormatada || '—';
+    if (printSol)    printSol.textContent    = solicitante || '—';
+    if (printDest)   printDest.textContent   = destino || '—';
+    if (printSetor)  printSetor.textContent  = setor || '—';
+    if (printObj)    printObj.textContent    = objetivo || '—';
+    if (printJust)   printJust.textContent   = justificativa || '—';
+    if (printObs)    printObs.textContent    = observacoes || '—';
+    if (printSigSol) printSigSol.textContent = solicitante || '';
 
-    const campos = element.querySelectorAll('input, textarea');
-    _fixarValoresCampos(campos);
+    // Renderizar tabela de materiais no template impresso
+    if (printTbody) {
+        printTbody.innerHTML = '';
+        if (materiais.length === 0) {
+            printTbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 12px; color: #555;">
+                        Nenhum material adicionado.
+                    </td>
+                </tr>
+            `;
+        } else {
+            materiais.forEach((mat, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td><strong>${_esc(mat.material)}</strong></td>
+                    <td>${_esc(mat.descricao || '—')}</td>
+                    <td style="text-align: center;">${_esc(mat.un || 'UN')}</td>
+                    <td style="text-align: right;">${mat.qtd}</td>
+                `;
+                printTbody.appendChild(tr);
+            });
+        }
+    }
 
-    const snapshots = _aplicarEstiloImpressao(campos);
+    // c) Ocultar a tela principal (.container) e exibir o #pdf-print-template
+    if (container) container.style.display = 'none';
+    if (navbar)    navbar.style.display    = 'none';
+    template.style.display = 'block';
 
+    // d) Executar html2pdf().from(document.getElementById('pdf-print-template'))
     const dataHoje = new Date().toISOString().slice(0, 10);
     const osIdentificador = solicitacaoAtualId ? `_OS_${String(solicitacaoAtualId).padStart(3, '0')}` : '';
     const opt = {
-        margin:      10,
+        margin:      [10, 10, 10, 10],
         filename:    `solicitacao_estoque${osIdentificador}_${dataHoje}.pdf`,
         image:       { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#121212' },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
         jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
 
     try {
-        await html2pdf().set(opt).from(element).save();
+        await html2pdf().set(opt).from(template).save();
         _mostrarToast('PDF exportado com sucesso!', 'success');
     } catch (err) {
         console.error('[exportarPDF] Erro ao gerar PDF:', err);
         _mostrarToast('Falha ao exportar PDF.', 'error');
     } finally {
-        elementosOcultos.forEach(el => { el.style.display = ''; });
-        _restaurarEstilos(snapshots);
-
-        selectRestore.forEach(({ select, span }) => {
-            select.style.display = '';
-            span.remove();
-        });
+        // e) No bloco finally, ocultar o template e restaurar a exibição da tela principal
+        template.style.display = 'none';
+        if (container) container.style.display = '';
+        if (navbar)    navbar.style.display    = '';
     }
 }
 
