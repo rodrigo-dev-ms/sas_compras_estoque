@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SISTEMA DE SOLICITAÇÃO DE ESTOQUE — DARK THEME (#121212)
+   QUICKER COMPRAS — DARK THEME (#121212)
    Design System: Alto contraste, tipografia nítida, CSS Grid e Flexbox
    ========================================================================== */
 
@@ -8,20 +8,21 @@
     --bg-surface: #1e1e1e;
     --bg-surface-elevated: #282828;
     --bg-input: #181818;
-    
+
     --border-color: #333333;
     --border-focus: #3b82f6;
-    
+
     --text-primary: #f5f5f5;
     --text-secondary: #a3a3a3;
     --text-muted: #737373;
-    
+
     --accent-primary: #2563eb;
     --accent-hover: #1d4ed8;
     --accent-success: #10b981;
     --accent-warning: #f59e0b;
     --accent-danger: #ef4444;
     --accent-danger-hover: #dc2626;
+    --accent-info: #3b82f6;
 
     --radius-sm: 4px;
     --radius-md: 8px;
@@ -49,7 +50,9 @@ body {
     flex-direction: column;
 }
 
-/* Navbar / Barra Superior */
+/* ==========================================================================
+   NAVBAR — Barra Superior
+   ========================================================================== */
 .app-navbar {
     background-color: var(--bg-surface);
     border-bottom: 1px solid var(--border-color);
@@ -60,20 +63,48 @@ body {
 }
 
 .navbar-content {
-    max-width: 1024px;
+    max-width: 1200px;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
+.navbar-brand {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+}
+
+.navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
 .user-badge {
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .user-badge strong {
     color: var(--text-primary);
+}
+
+.role-tag {
+    background-color: var(--bg-surface-elevated);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .btn-logout {
@@ -156,15 +187,81 @@ body {
     text-align: center;
 }
 
+/* ==========================================================================
+   ABAS — Navegação entre seções
+   ========================================================================== */
+.tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.tab:hover {
+    color: var(--text-secondary);
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.tab.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+}
+
+.tab-badge {
+    background-color: var(--bg-surface-elevated);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    min-width: 20px;
+    text-align: center;
+    transition: var(--transition-fast);
+}
+
+.tab.active .tab-badge {
+    background-color: rgba(37, 99, 235, 0.2);
+    color: var(--accent-primary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Container Principal */
 .container {
-    max-width: 1024px;
+    max-width: 1200px;
     width: 100%;
     margin: 24px auto;
     padding: 0 16px 40px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
 }
 
 /* Folha / Documento de Requisição */
@@ -197,15 +294,10 @@ body {
     color: var(--text-primary);
 }
 
-.badge-status {
-    background-color: rgba(16, 185, 129, 0.15);
-    color: var(--accent-success);
-    border: 1px solid var(--accent-success);
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 9999px;
-    letter-spacing: 0.5px;
+.header-status-area {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .doc-header h3 {
@@ -218,6 +310,52 @@ body {
     color: var(--text-muted);
     font-size: 0.85rem;
     margin-top: 4px;
+}
+
+/* ==========================================================================
+   SELECT DE STATUS — Cores por estado
+   ========================================================================== */
+.select-status {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 9999px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border: 1px solid;
+    width: auto;
+    text-align: center;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.status-aberta {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: var(--accent-success);
+    border-color: var(--accent-success);
+}
+
+.status-andamento {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: var(--accent-warning);
+    border-color: var(--accent-warning);
+}
+
+.status-finalizada {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: var(--accent-info);
+    border-color: var(--accent-info);
+}
+
+/* Badge estático de status (histórico e PDF) */
+.badge-status {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    letter-spacing: 0.5px;
+    border: 1px solid;
 }
 
 /* Formulário e Grids */
@@ -268,6 +406,11 @@ select {
     width: 100%;
 }
 
+input[readonly] {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
 input::placeholder,
 textarea::placeholder {
     color: var(--text-muted);
@@ -314,7 +457,8 @@ textarea {
     margin-bottom: 12px;
 }
 
-table#tabela-materiais {
+table#tabela-materiais,
+table.tabela-historico {
     width: 100%;
     border-collapse: collapse;
     background-color: var(--bg-input);
@@ -323,13 +467,16 @@ table#tabela-materiais {
 }
 
 table#tabela-materiais th,
-table#tabela-materiais td {
+table#tabela-materiais td,
+table.tabela-historico th,
+table.tabela-historico td {
     padding: 10px 12px;
     text-align: left;
     border: 1px solid var(--border-color);
 }
 
-table#tabela-materiais th {
+table#tabela-materiais th,
+table.tabela-historico th {
     background-color: var(--bg-surface-elevated);
     color: var(--text-secondary);
     font-size: 0.75rem;
@@ -350,7 +497,9 @@ table#tabela-materiais td select {
     font-weight: 600;
 }
 
-/* Botões de Ação */
+/* ==========================================================================
+   BOTÕES — Sistema de botões
+   ========================================================================== */
 .btn-add {
     background-color: transparent;
     color: #60a5fa;
@@ -394,6 +543,93 @@ table#tabela-materiais td select {
     color: #fca5a5;
 }
 
+.btn-save {
+    background-color: var(--accent-success);
+    color: #ffffff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+    transition: var(--transition-fast);
+}
+
+.btn-save:hover {
+    background-color: #059669;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
+    transform: translateY(-1px);
+}
+
+.btn-save:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-secondary:hover {
+    background-color: var(--bg-surface-elevated);
+    color: var(--text-primary);
+}
+
+/* Botões de ação na tabela do histórico */
+.btn-action-sm {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-action-sm:hover {
+    background-color: var(--bg-surface-elevated);
+    color: var(--text-primary);
+}
+
+.btn-action-sm.danger {
+    color: var(--accent-danger);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-action-sm.danger:hover {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border-color: var(--accent-danger);
+}
+
+/* Select de status inline na tabela do histórico */
+.select-status-sm {
+    padding: 3px 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 9999px;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    border: 1px solid;
+    width: auto;
+    text-align: center;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: transparent;
+}
+
 /* Área de Assinaturas */
 .assinaturas {
     display: grid;
@@ -422,10 +658,12 @@ table#tabela-materiais td select {
     font-weight: 500;
 }
 
-/* Barra Inferior com Exportação */
+/* Barra de ações */
 .action-bar {
     display: flex;
     justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
 }
 
 .btn-export {
@@ -434,7 +672,7 @@ table#tabela-materiais td select {
     border: none;
     padding: 12px 24px;
     border-radius: var(--radius-sm);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
     display: inline-flex;
@@ -454,11 +692,112 @@ table#tabela-materiais td select {
 }
 
 /* ==========================================================================
+   ESTADOS — Loading, Vazio
+   ========================================================================== */
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 48px 0;
+    color: var(--text-muted);
+}
+
+.empty-state svg {
+    margin-bottom: 16px;
+    opacity: 0.4;
+}
+
+.empty-state p {
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+/* O.S. ID badge na tabela */
+.os-id {
+    font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--accent-primary);
+}
+
+/* Ações inline no histórico */
+.actions-cell {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ==========================================================================
+   TOAST — Notificações
+   ========================================================================== */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.toast {
+    background-color: var(--bg-surface-elevated);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 12px 20px;
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: toastIn 0.3s ease-out;
+    max-width: 380px;
+}
+
+.toast.success { border-left: 3px solid var(--accent-success); }
+.toast.error   { border-left: 3px solid var(--accent-danger); }
+.toast.info    { border-left: 3px solid var(--accent-info); }
+
+.toast.removing {
+    animation: toastOut 0.25s ease-in forwards;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(40px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastOut {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(40px); }
+}
+
+/* ==========================================================================
    REGRAS DE OCULTAÇÃO E EXPORTAÇÃO (PDF / IMPRESSÃO)
    ========================================================================== */
-.hide-on-export {
-    display: none !important;
-}
 
 /* Estilos de impressão padrão */
 @media print {
@@ -490,7 +829,7 @@ table#tabela-materiais td select {
         color: #000000 !important;
     }
 
-    .badge-status {
+    .badge-status, .select-status {
         border-color: #000000 !important;
         color: #000000 !important;
     }
@@ -500,6 +839,16 @@ table#tabela-materiais td select {
    RESPONSIVIDADE (MOBILE / TABLET)
    ========================================================================== */
 @media (max-width: 768px) {
+    .navbar-content {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .navbar-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
     .document-sheet {
         padding: 20px 16px;
     }
@@ -516,11 +865,21 @@ table#tabela-materiais td select {
     }
 
     .action-bar {
-        justify-content: stretch;
+        flex-direction: column;
     }
 
-    .btn-export {
+    .action-bar button {
         width: 100%;
         justify-content: center;
+    }
+
+    .tabs {
+        overflow-x: auto;
+    }
+
+    .tab {
+        white-space: nowrap;
+        font-size: 0.8rem;
+        padding: 10px 14px;
     }
 }

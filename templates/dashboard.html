@@ -3,119 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solicitação de Estoque — Quick Telecom</title>
+    <title>Quicker Compras — Quicker Telecom</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-    <!-- Barra superior de utilitários (usuário logado e logout) -->
+    <!-- ══════════════════════════════════════════════════════════════════════
+         NAVBAR — Barra superior (usuário + logout)
+         ══════════════════════════════════════════════════════════════════════ -->
     <header class="app-navbar hide-on-export">
         <div class="navbar-content">
-            <span class="user-badge">
-                Conectado como: <strong>{{ user | capitalize }}</strong>
-            </span>
-            <form method="post" action="/logout" class="logout-form">
-                <button type="submit" class="btn-logout" title="Encerrar sessão">Sair</button>
-            </form>
+            <span class="navbar-brand">Quicker Compras</span>
+            <div class="navbar-right">
+                <span class="user-badge">
+                    Conectado como: <strong>{{ user | capitalize }}</strong>
+                    <span class="role-tag">{{ user_role }}</span>
+                </span>
+                <form method="post" action="/logout" class="logout-form">
+                    <button type="submit" class="btn-logout" title="Encerrar sessão">Sair</button>
+                </form>
+            </div>
         </div>
     </header>
 
+    <!-- ══════════════════════════════════════════════════════════════════════
+         ABAS — Navegação entre Nova Solicitação e Histórico
+         ══════════════════════════════════════════════════════════════════════ -->
     <div class="container">
-        <div id="pdf-area" class="document-sheet">
-            <header class="doc-header">
-                <div class="company-brand">
-                    <h2>Quick Telecom</h2>
-                    <span class="badge-status">Status: ABERTA</span>
-                </div>
-                <h3>Solicitação de Estoque</h3>
-                <p class="doc-subtitle">Documento de requisição interna de materiais e equipamentos</p>
-            </header>
+        <nav class="tabs hide-on-export" id="nav-tabs">
+            <button type="button" class="tab active" data-tab="tab-nova" onclick="trocarAba('tab-nova')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                Nova Solicitação
+            </button>
+            <button type="button" class="tab" data-tab="tab-historico" onclick="trocarAba('tab-historico')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Histórico
+                <span class="tab-badge" id="tab-count-badge">0</span>
+            </button>
+        </nav>
 
-            <form id="form-estoque" onsubmit="event.preventDefault();">
-                <div class="grid-2">
-                    <div class="input-group">
-                        <label for="data-solicitacao">DATA DA SOLICITAÇÃO</label>
-                        <input id="data-solicitacao" type="date" value="{{ data_atual }}">
+        <!-- ══════════════════════════════════════════════════════════════════
+             ABA 1 — NOVA SOLICITAÇÃO (Formulário)
+             ══════════════════════════════════════════════════════════════════ -->
+        <section id="tab-nova" class="tab-content active">
+            <div id="pdf-area" class="document-sheet">
+                <header class="doc-header">
+                    <div class="company-brand">
+                        <h2>Quicker Telecom</h2>
+                        <div class="header-status-area" id="header-status-container" style="display: none;">
+                            <select id="select-status-form" class="select-status status-aberta">
+                                <option value="ABERTA" selected>ABERTA</option>
+                                <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+                                <option value="FINALIZADA">FINALIZADA</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <label for="solicitante">SOLICITANTE</label>
-                        <input id="solicitante" type="text" value="{{ user | capitalize }}">
+                    <h3>Quicker Compras — Solicitação de Estoque <span id="doc-os-number" style="display: none; color: var(--accent-primary);"></span></h3>
+                    <p class="doc-subtitle">Documento de requisição interna de materiais e equipamentos</p>
+                </header>
+
+                <form id="form-estoque" onsubmit="event.preventDefault();">
+                    <div class="grid-2">
+                        <div class="input-group">
+                            <label for="data-solicitacao">DATA DA SOLICITAÇÃO</label>
+                            <input id="data-solicitacao" type="date" value="{{ data_atual }}">
+                        </div>
+                        <div class="input-group">
+                            <label for="solicitante">SOLICITANTE</label>
+                            <input id="solicitante" type="text" value="{{ user | capitalize }}" readonly>
+                        </div>
+                        <div class="input-group">
+                            <label for="destino">DESTINO</label>
+                            <input id="destino" type="text" placeholder="Ex: PQ NOVO MT" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="setor">SETOR</label>
+                            <input id="setor" type="text" placeholder="Ex: Operações / Redes">
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <label for="destino">DESTINO</label>
-                        <input id="destino" type="text" placeholder="Ex: PQ NOVO MT">
-                    </div>
-                    <div class="input-group">
+
+                    <div class="input-group full-width">
                         <label for="objetivo">OBJETIVO</label>
-                        <input id="objetivo" type="text" placeholder="Ex: Ajuste de LINKS">
+                        <input id="objetivo" type="text" placeholder="Ex: Ajuste de LINKS" required>
                     </div>
+
+                    <div class="input-group full-width">
+                        <label for="justificativa">JUSTIFICATIVA</label>
+                        <textarea id="justificativa" rows="2" placeholder="Descreva o motivo da solicitação..."></textarea>
+                    </div>
+
+                    <div class="table-section-header">
+                        <h4>LISTA DE MATERIAIS</h4>
+                        <span class="table-counter" id="item-counter">0 item(ns) adicionado(s)</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="tabela-materiais">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th style="width: 28%;">Material</th>
+                                    <th>Descrição Detalhada</th>
+                                    <th style="width: 70px;">Un</th>
+                                    <th style="width: 90px;">Qtd Sol.</th>
+                                    <th class="hide-on-export" style="width: 80px; text-align: center;">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-materiais">
+                                <!-- Linhas inseridas dinamicamente via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button type="button" class="btn-add hide-on-export" onclick="addLinha()">
+                        <span class="btn-icon">+</span> Adicionar Material
+                    </button>
+
+                    <div class="input-group full-width mt-3">
+                        <label for="observacoes">OBSERVAÇÕES GERAIS</label>
+                        <textarea id="observacoes" rows="2" placeholder="Informações adicionais para a equipe de estoque/compras..."></textarea>
+                    </div>
+
+                    <div class="assinaturas">
+                        <div class="ass-box">
+                            <div class="signature-line"></div>
+                            <p class="signature-role">Solicitante</p>
+                        </div>
+                        <div class="ass-box">
+                            <div class="signature-line"></div>
+                            <p class="signature-role">Responsável pelo Estoque</p>
+                        </div>
+                        <div class="ass-box">
+                            <div class="signature-line"></div>
+                            <p class="signature-role">Aprovação / Gerência</p>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Barra de ações do formulário -->
+            <div class="action-bar hide-on-export">
+                <button type="button" class="btn-secondary" id="btn-limpar" onclick="limparFormulario()">
+                    Limpar Formulário
+                </button>
+                <button type="button" class="btn-save" id="btn-abrir-os" onclick="abrirOS()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Abrir O.S.
+                </button>
+                <button type="button" class="btn-save" id="btn-atualizar-os" onclick="atualizarOS()" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;">
+                        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                    </svg>
+                    Atualizar O.S.
+                </button>
+                <button type="button" class="btn-export" id="btn-exportar-pdf" onclick="exportarPDF()" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Exportar PDF
+                </button>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════════════
+             ABA 2 — HISTÓRICO DE SOLICITAÇÕES
+             ══════════════════════════════════════════════════════════════════ -->
+        <section id="tab-historico" class="tab-content">
+            <div class="document-sheet">
+                <header class="doc-header">
+                    <h2>Histórico de Solicitações</h2>
+                    <p class="doc-subtitle">Todas as O.S. registradas no sistema — ordenadas pela mais recente</p>
+                </header>
+
+                <!-- Indicador de carregamento -->
+                <div id="historico-loading" class="loading-indicator">
+                    <div class="spinner"></div>
+                    <span>Carregando solicitações...</span>
                 </div>
 
-                <div class="input-group full-width">
-                    <label for="justificativa">JUSTIFICATIVA</label>
-                    <textarea id="justificativa" rows="2" placeholder="Descreva o motivo da solicitação..."></textarea>
+                <!-- Estado vazio -->
+                <div id="historico-vazio" class="empty-state" style="display:none;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <p>Nenhuma solicitação encontrada.</p>
+                    <button type="button" class="btn-add" onclick="trocarAba('tab-nova')">Criar primeira solicitação</button>
                 </div>
 
-                <div class="table-section-header">
-                    <h4>LISTA DE MATERIAIS</h4>
-                    <span class="table-counter" id="item-counter">0 item(ns) adicionado(s)</span>
-                </div>
-
-                <div class="table-responsive">
-                    <table id="tabela-materiais">
+                <!-- Tabela de listagem -->
+                <div class="table-responsive" id="historico-tabela-wrapper" style="display:none;">
+                    <table id="tabela-historico" class="tabela-historico">
                         <thead>
                             <tr>
-                                <th style="width: 50px;">#</th>
-                                <th style="width: 28%;">Material</th>
-                                <th>Descrição Detalhada</th>
-                                <th style="width: 70px;">Un</th>
-                                <th style="width: 90px;">Qtd Sol.</th>
-                                <th class="hide-on-export" style="width: 80px; text-align: center;">Ação</th>
+                                <th style="width:70px;">O.S.</th>
+                                <th style="width:100px;">Data</th>
+                                <th>Destino</th>
+                                <th>Objetivo</th>
+                                <th style="width:140px;">Status</th>
+                                <th style="width:140px;text-align:center;">Ações</th>
                             </tr>
                         </thead>
-                        <tbody id="tbody-materiais">
-                            <!-- Linhas inseridas dinamicamente via JavaScript -->
+                        <tbody id="tbody-historico">
+                            <!-- Linhas renderizadas via JS -->
                         </tbody>
                     </table>
                 </div>
-
-                <button type="button" class="btn-add hide-on-export" onclick="addLinha()">
-                    <span class="btn-icon">+</span> Adicionar Material
-                </button>
-
-                <div class="input-group full-width mt-3">
-                    <label for="observacoes">OBSERVAÇÕES GERAIS</label>
-                    <textarea id="observacoes" rows="2" placeholder="Informações adicionais para a equipe de estoque/compras..."></textarea>
-                </div>
-
-                <div class="assinaturas">
-                    <div class="ass-box">
-                        <div class="signature-line"></div>
-                        <p class="signature-role">Solicitante</p>
-                    </div>
-                    <div class="ass-box">
-                        <div class="signature-line"></div>
-                        <p class="signature-role">Responsável pelo Estoque</p>
-                    </div>
-                    <div class="ass-box">
-                        <div class="signature-line"></div>
-                        <p class="signature-role">Aprovação / Gerência</p>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <div class="action-bar hide-on-export">
-            <button type="button" class="btn-export" onclick="exportarPDF()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                Exportar para PDF
-            </button>
-        </div>
+            </div>
+        </section>
     </div>
+
+    <!-- Toast de notificações -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="/static/script.js"></script>
 </body>
