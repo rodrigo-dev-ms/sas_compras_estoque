@@ -31,8 +31,38 @@ let filtroStatusAtual = '';
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
+ * Move o formulário e botões de ação para a aba desejada.
+ */
+function moverFormularioPara(destinoId) {
+    const pdfArea = document.getElementById('pdf-area');
+    const actionBar = document.querySelector('.action-bar');
+    const destino = document.getElementById(destinoId);
+    
+    if (pdfArea && actionBar && destino) {
+        destino.appendChild(pdfArea);
+        destino.appendChild(actionBar);
+    }
+}
+
+/**
+ * Restaura a visão da aba de Histórico para exibir a listagem e filtros.
+ */
+function restaurarHistoricoParaListagem() {
+    const wrapper = document.getElementById('historico-tabela-wrapper');
+    const filters = document.querySelector('.historico-filters');
+    const docHeader = document.querySelector('#tab-historico .doc-header');
+    
+    if (wrapper) wrapper.style.display = '';
+    if (filters) filters.style.display = 'flex';
+    if (docHeader) docHeader.style.display = 'block';
+    
+    // Devolve o formulário para a aba original de Nova OS
+    moverFormularioPara('tab-nova');
+}
+
+/**
  * Alterna a aba ativa no dashboard.
- * Carrega dinamicamente os dados da seção selecionada.
+ * Carrega dinamicamente os dados da seção selecionada e gerencia o formulário.
  * @param {string} tabId — ID da seção a ativar ('tab-nova', 'tab-historico' ou 'tab-usuarios')
  */
 function trocarAba(tabId) {
@@ -44,8 +74,13 @@ function trocarAba(tabId) {
     if (btn) btn.classList.add('active');
     if (sec) sec.classList.add('active');
 
+    // Restaura a visualização da listagem do histórico e devolve o form para a tab-nova
+    restaurarHistoricoParaListagem();
+
     if (tabId === 'tab-historico') {
         carregarSolicitacoes();
+    } else if (tabId === 'tab-nova') {
+        limparFormulario(); // Garante formulário limpo sempre que clicar em Nova OS
     } else if (tabId === 'tab-usuarios') {
         carregarUsuarios();
     }
@@ -503,8 +538,19 @@ async function carregarParaEdicao(id) {
 
     _preencherFormulario(os);
     setModoVisualizacao('edicao', os);
-    trocarAba('tab-nova');
+    
+    // MUDANÇA: Exibir o formulário na aba de Histórico, escondendo a lista temporariamente
+    moverFormularioPara('tab-historico');
+    
+    const wrapper = document.getElementById('historico-tabela-wrapper');
+    const filters = document.querySelector('.historico-filters');
+    const docHeader = document.querySelector('#tab-historico .doc-header');
+    if (wrapper) wrapper.style.display = 'none';
+    if (filters) filters.style.display = 'none';
+    if (docHeader) docHeader.style.display = 'none';
+
     _mostrarToast(`O.S. #${id} carregada no formulário.`, 'info');
+    window.scrollTo(0, 0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1165,16 +1211,32 @@ async function exportarPDF(dadosOS = null) {
     if (navbar)    navbar.style.display    = 'none';
     template.style.display = 'block';
 
-    // 3. Configurações de exportação do PDF
+    // 3. Forçar rolagem para o topo para evitar que o html2canvas capture o canvas deslocado
+    window.scrollTo(0, 0);
+
+    // 4. Configurações de exportação do PDF (Paradigma Estrito)
     const dataHoje = new Date().toISOString().slice(0, 10);
     const osId = dadosOS?.id || solicitacaoAtualId;
     const osIdentificador = osId ? `_OS_${String(osId).padStart(3, '0')}` : '';
     const opt = {
-        margin:      [10, 10, 10, 10],
+        margin:      0,
         filename:    `solicitacao_estoque${osIdentificador}_${dataHoje}.pdf`,
-        image:       { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        image:       { type: 'jpeg', quality: 1.0 },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            width: 794,
+            height: 1122,
+            windowWidth: 794,
+            windowHeight: 1122,
+            x: 0,
+            y: 0,
+            scrollX: 0,
+            scrollY: 0
+        },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     try {

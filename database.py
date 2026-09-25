@@ -97,16 +97,19 @@ def init_db() -> None:
         user_count: int = session.query(User).count()
 
         if user_count == 0:
+            admin_username = os.getenv("DEFAULT_ADMIN_USER", "admin")
+            admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin123")
             admin = User(
-                username="admin",
-                password="admin123",  # MVP — substituir por hash em produção
+                username=admin_username,
+                password=admin_password,  # MVP — substituir por hash em produção
                 role="admin",
             )
             session.add(admin)
             session.commit()
             logger.info(
                 "Banco de dados vazio detectado. "
-                "Usuário padrão 'admin' criado com sucesso."
+                "Usuário padrão '%s' criado com sucesso.",
+                admin_username
             )
         else:
             logger.info(
