@@ -95,6 +95,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 
+@app.api_route("/healthz", methods=["GET", "HEAD"])
+async def health_check():
+    """Endpoint dedicado para monitoramento de uptime."""
+    return {"status": "online"}
+
+
 # ---------------------------------------------------------------------------
 # Dependências reutilizáveis
 # ---------------------------------------------------------------------------
