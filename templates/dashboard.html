@@ -317,110 +317,127 @@
     <!-- ══════════════════════════════════════════════════════════════════════
          TEMPLATE DE IMPRESSÃO / EXPORTAÇÃO PDF (DOCUMENTO FORMAL EM PAPEL)
          ══════════════════════════════════════════════════════════════════════ -->
-    <div id="pdf-print-template" style="display: none; background: #fff; color: #000; padding: 20px;">
-        <div class="pdf-container">
-            <!-- Cabeçalho -->
-            <table class="pdf-table-header">
-                <tr>
-                    <td style="width: 70%; vertical-align: middle;">
-                        <h2 class="pdf-company-title">Quicker Telecom</h2>
-                        <h3 class="pdf-doc-title">Quicker Compras — Solicitação de Estoque</h3>
-                        <p class="pdf-doc-subtitle">Documento de requisição interna de materiais e equipamentos</p>
-                    </td>
-                    <td style="width: 30%; text-align: right; vertical-align: middle;">
-                        <div class="pdf-os-badge">
-                            <span class="pdf-badge-label">NÚMERO DA O.S.</span>
-                            <strong class="pdf-badge-value" id="print-os-numero">—</strong>
-                        </div>
-                        <div class="pdf-os-status">
-                            <span class="pdf-badge-label">STATUS:</span>
-                            <span class="pdf-status-tag status-aberta" id="print-os-status">ABERTA</span>
-                        </div>
-                    </td>
-                </tr>
-            </table>
+    <div id="pdf-print-template" style="display: none;">
 
-            <!-- Campos Gerais / Formulário -->
-            <table class="pdf-table-info">
-                <tr>
-                    <td style="width: 50%;">
-                        <span class="pdf-field-label">DATA DA SOLICITAÇÃO</span>
-                        <span class="pdf-field-value" id="print-data">—</span>
-                    </td>
-                    <td style="width: 50%;">
-                        <span class="pdf-field-label">SOLICITANTE</span>
-                        <span class="pdf-field-value" id="print-solicitante">—</span>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <span class="pdf-field-label">DESTINO</span>
-                        <span class="pdf-field-value" id="print-destino">—</span>
-                    </td>
-                    <td>
-                        <span class="pdf-field-label">SETOR</span>
-                        <span class="pdf-field-value" id="print-setor">—</span>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">
-                        <span class="pdf-field-label">OBJETIVO</span>
-                        <span class="pdf-field-value" id="print-objetivo">—</span>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">
-                        <span class="pdf-field-label">JUSTIFICATIVA</span>
-                        <span class="pdf-field-value" id="print-justificativa">—</span>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Relação de Materiais -->
-            <div class="pdf-section-title">LISTA DE MATERIAIS E EQUIPAMENTOS</div>
-            <table class="pdf-table-items">
-                <thead>
+            <!-- TOPO: Tarja escura ponta a ponta (100% de largura) -->
+            <div class="pdf-header-section">
+                <table class="pdf-header-table">
                     <tr>
-                        <th style="width: 40px; text-align: center;">#</th>
-                        <th style="width: 32%;">Material</th>
-                        <th>Descrição Detalhada</th>
-                        <th style="width: 60px; text-align: center;">Un</th>
-                        <th style="width: 80px; text-align: right;">Qtd Sol.</th>
+                        <td class="pdf-header-left">
+                            <h2 class="pdf-company-title">QUICKER TELECOM</h2>
+                            <h3 class="pdf-doc-title">ORDEM DE SERVIÇO &bull; REQUISIÇÃO DE ESTOQUE</h3>
+                            <p class="pdf-doc-subtitle">Documento Interno de Controle e Movimentação de Materiais</p>
+                        </td>
+                        <td class="pdf-header-right">
+                            <div class="pdf-os-badge">
+                                <span class="pdf-badge-label">NÚMERO DA O.S.</span>
+                                <strong class="pdf-badge-value" id="print-os-numero">—</strong>
+                            </div>
+                            <div class="pdf-os-status">
+                                <span class="pdf-badge-label">STATUS:</span>
+                                <span class="pdf-status-tag status-aberta" id="print-os-status">ABERTA</span>
+                            </div>
+                        </td>
                     </tr>
-                </thead>
-                <tbody id="print-tbody-materiais">
-                    <!-- Inserido dinamicamente via JavaScript -->
-                </tbody>
-            </table>
-
-            <!-- Observações Gerais -->
-            <div class="pdf-obs-box">
-                <span class="pdf-field-label">OBSERVAÇÕES GERAIS</span>
-                <div class="pdf-field-value" id="print-observacoes">—</div>
+                </table>
             </div>
 
-            <!-- Seção de Assinaturas -->
-            <table class="pdf-table-signatures">
-                <tr>
-                    <td class="pdf-signature-cell">
-                        <div class="pdf-sig-line"></div>
-                        <p class="pdf-sig-role">Solicitante</p>
-                        <p class="pdf-sig-name" id="print-sig-solicitante"></p>
-                    </td>
-                    <td class="pdf-signature-cell">
-                        <div class="pdf-sig-line"></div>
-                        <p class="pdf-sig-role">Responsável pelo Estoque</p>
-                        <p class="pdf-sig-name">Visto / Conferência</p>
-                    </td>
-                    <td class="pdf-signature-cell">
-                        <div class="pdf-sig-line"></div>
-                        <p class="pdf-sig-role">Aprovação / Gerência</p>
-                        <p class="pdf-sig-name">Assinatura / Carimbo</p>
-                    </td>
-                </tr>
-            </table>
-        </div>
-    </div>
+            <!-- CORPO: Campos gerais e materiais -->
+            <div class="pdf-body-section">
+
+                <!-- Campos Gerais / Formulário -->
+                <div class="pdf-section-header">
+                    <span class="pdf-section-bullet"></span>
+                    <span class="pdf-section-title-text">DADOS DA SOLICITAÇÃO</span>
+                </div>
+                <table class="pdf-table-info">
+                    <tr>
+                        <td style="width: 50%;">
+                            <span class="pdf-field-label">DATA DA SOLICITAÇÃO</span>
+                            <span class="pdf-field-value" id="print-data">—</span>
+                        </td>
+                        <td style="width: 50%;">
+                            <span class="pdf-field-label">SOLICITANTE</span>
+                            <span class="pdf-field-value" id="print-solicitante">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="pdf-field-label">DESTINO</span>
+                            <span class="pdf-field-value" id="print-destino">—</span>
+                        </td>
+                        <td>
+                            <span class="pdf-field-label">SETOR</span>
+                            <span class="pdf-field-value" id="print-setor">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="2">
+                            <span class="pdf-field-label">OBJETIVO</span>
+                            <span class="pdf-field-value" id="print-objetivo">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="2">
+                            <span class="pdf-field-label">JUSTIFICATIVA</span>
+                            <span class="pdf-field-value" id="print-justificativa">—</span>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Relação de Materiais -->
+                <div class="pdf-section-header">
+                    <span class="pdf-section-bullet"></span>
+                    <span class="pdf-section-title-text">LISTA DE MATERIAIS E EQUIPAMENTOS</span>
+                </div>
+                <table class="pdf-table-items">
+                    <thead>
+                        <tr>
+                            <th style="width: 36px; text-align: center;">#</th>
+                            <th style="width: 32%;">Material</th>
+                            <th>Descrição Detalhada</th>
+                            <th style="width: 55px; text-align: center;">Un</th>
+                            <th style="width: 75px; text-align: right;">Qtd Sol.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="print-tbody-materiais">
+                        <!-- Inserido dinamicamente via JavaScript -->
+                    </tbody>
+                </table>
+
+                <!-- Observações Gerais -->
+                <div class="pdf-obs-box">
+                    <span class="pdf-field-label">OBSERVAÇÕES GERAIS</span>
+                    <div class="pdf-field-value" id="print-observacoes">—</div>
+                </div>
+
+            </div><!-- /.pdf-body-section -->
+
+            <!-- RODAPÉ: Assinaturas fixadas na base (position: absolute bottom) -->
+            <div class="pdf-footer-section">
+                <table class="pdf-table-signatures">
+                    <tr>
+                        <td class="pdf-signature-cell">
+                            <div class="pdf-sig-line"></div>
+                            <p class="pdf-sig-role">Solicitante</p>
+                            <p class="pdf-sig-name" id="print-sig-solicitante"></p>
+                        </td>
+                        <td class="pdf-signature-cell">
+                            <div class="pdf-sig-line"></div>
+                            <p class="pdf-sig-role">Responsável do Estoque</p>
+                            <p class="pdf-sig-name">Visto / Almoxarifado</p>
+                        </td>
+                        <td class="pdf-signature-cell">
+                            <div class="pdf-sig-line"></div>
+                            <p class="pdf-sig-role">Aprovação / Gerência</p>
+                            <p class="pdf-sig-name">Assinatura / Carimbo</p>
+                        </td>
+                    </tr>
+                </table>
+                <div class="pdf-footer-stamp">Quicker Compras &bull; Sistema de Gestão de Estoque &bull; Documento Oficial &bull; Página 1 de 1</div>
+            </div><!-- /.pdf-footer-section -->
+
+    </div><!-- /#pdf-print-template -->
 
     <script src="/static/script.js"></script>
 </body>
