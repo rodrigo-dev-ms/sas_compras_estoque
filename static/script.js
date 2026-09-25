@@ -323,19 +323,16 @@ async function abrirOS() {
         const novaOS = await response.json();
         _atualizarBadgeHistorico();
 
-        const desejaExportar = confirm(
-            `O.S. #${novaOS.id} aberta com sucesso!\n\nDeseja exportar o PDF agora?`
-        );
+        // 1. PRIMEIRO: Limpa o formulário (retornando ao estado inicial)
+        limparFormulario();
 
+        // 2. LOGO EM SEGUIDA: Exibir confirm
+        const osNumFormatado = String(novaOS.id).padStart(3, '0');
+        const desejaExportar = confirm(`O.S. #${osNumFormatado} gerada com sucesso! Deseja exportar o PDF agora?`);
+
+        // 3. Se SIM: Injeta os dados da recém-criada O.S. e dispara o PDF silenciosamente
         if (desejaExportar) {
-            // Se SIM: ativa o modo de edição (libera exportação de PDF)
-            setModoVisualizacao('edicao', novaOS);
-            _preencherFormulario(novaOS);
-            _mostrarToast(`O.S. #${novaOS.id} aberta. Modo de edição liberado.`, 'success');
-        } else {
-            // Se NÃO: limpa o formulário e volta para o estado inicial
-            limparFormulario();
-            _mostrarToast(`O.S. #${novaOS.id} salva com sucesso. Formulário limpo.`, 'success');
+            await exportarPDF(novaOS);
         }
 
     } catch (error) {
@@ -1023,41 +1020,12 @@ function _escAttr(val) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Exporta o documento formal como PDF a partir do #pdf-print-template.
- * Coleta os valores do formulário, injeta no template limpo, oculta a interface
- * escura temporariamente e gera o PDF idêntico a um documento físico de papel.
+ * Injeta os dados da O.S. no template de impressão (#pdf-print-template).
+ * Suporta injeção direta via objeto da O.S. (ex: recém-criada) ou fallback
+ * para os valores atuais do formulário (#form-estoque).
+ * @param {object|null} [dadosOS=null] — Objeto da O.S. ou null para ler do formulário.
  */
-async function exportarPDF() {
-    const template  = document.getElementById('pdf-print-template');
-    const container = document.querySelector('.container');
-    const navbar    = document.querySelector('.app-navbar');
-
-    if (!template) {
-        console.error('[exportarPDF] Elemento #pdf-print-template não encontrado.');
-        _mostrarToast('Erro ao exportar PDF: template não encontrado.', 'error');
-        return;
-    }
-
-    // a) Coletar os valores atuais dos inputs do #form-estoque
-    const dataSol       = document.getElementById('data-solicitacao')?.value || '';
-    const solicitante   = document.getElementById('solicitante')?.value || '';
-    const destino       = document.getElementById('destino')?.value || '';
-    const setor         = document.getElementById('setor')?.value || '';
-    const objetivo      = document.getElementById('objetivo')?.value || '';
-    const justificativa = document.getElementById('justificativa')?.value || '';
-    const observacoes   = document.getElementById('observacoes')?.value || '';
-    const selectStatus  = document.getElementById('select-status-form');
-    const statusAtual   = selectStatus ? selectStatus.value : 'ABERTA';
-
-    let dataFormatada = dataSol;
-    if (dataSol && dataSol.includes('-')) {
-        const [ano, mes, dia] = dataSol.split('-');
-        dataFormatada = `${dia}/${mes}/${ano}`;
-    }
-
-    const materiais = _coletarMateriais();
-
-    // b) Injetar esses valores no #pdf-print-template
+function injetarDadosPDF(dadosOS = null) {
     const printNumero   = document.getElementById('print-os-numero');
     const printStatus   = document.getElementById('print-os-status');
     const printData     = document.getElementById('print-data');
@@ -1070,9 +1038,47 @@ async function exportarPDF() {
     const printSigSol   = document.getElementById('print-sig-solicitante');
     const printTbody    = document.getElementById('print-tbody-materiais');
 
-    const osLabel = solicitacaoAtualId ? `#${String(solicitacaoAtualId).padStart(3, '0')}` : 'S/N (NOVA)';
+    let osId, status, dataSol, solicitante, destino, setor, objetivo, justificativa, observacoes, materiais;
+
+    if (dadosOS) {
+        osId          = dadosOS.id;
+        status        = (dadosOS.status || 'ABERTA').toUpperCase();
+        dataSol       = dadosOS.data_criacao || '';
+        solicitante   = dadosOS.solicitante_nome || document.getElementById('solicitante')?.value || '';
+        destino       = dadosOS.destino || '';
+        setor         = dadosOS.setor || '';
+        objetivo      = dadosOS.objetivo || '';
+        justificativa = dadosOS.justificativa || '';
+        observacoes   = dadosOS.observacoes || '';
+        materiais     = Array.isArray(dadosOS.materiais) ? dadosOS.materiais : [];
+    } else {
+        osId          = solicitacaoAtualId;
+        const sel     = document.getElementById('select-status-form');
+        status        = (sel ? sel.value : 'ABERTA').toUpperCase();
+        dataSol       = document.getElementById('data-solicitacao')?.value || '';
+        solicitante   = document.getElementById('solicitante')?.value || '';
+        destino       = document.getElementById('destino')?.value || '';
+        setor         = document.getElementById('setor')?.value || '';
+        objetivo      = document.getElementById('objetivo')?.value || '';
+        justificativa = document.getElementById('justificativa')?.value || '';
+        observacoes   = document.getElementById('observacoes')?.value || '';
+        materiais     = _coletarMateriais();
+    }
+
+    let dataFormatada = dataSol;
+    if (dataSol && dataSol.includes('-')) {
+        const [ano, mes, dia] = dataSol.split('-');
+        dataFormatada = `${dia}/${mes}/${ano}`;
+    }
+
+    const osLabel = osId ? `#${String(osId).padStart(3, '0')}` : 'S/N (NOVA)';
     if (printNumero) printNumero.textContent = osLabel;
-    if (printStatus) printStatus.textContent = statusAtual;
+
+    if (printStatus) {
+        printStatus.textContent = status;
+        printStatus.className = 'pdf-status-tag ' + _classeStatus(status);
+    }
+
     if (printData)   printData.textContent   = dataFormatada || '—';
     if (printSol)    printSol.textContent    = solicitante || '—';
     if (printDest)   printDest.textContent   = destino || '—';
@@ -1107,15 +1113,36 @@ async function exportarPDF() {
             });
         }
     }
+}
 
-    // c) Ocultar a tela principal (.container) e exibir o #pdf-print-template
+/**
+ * Exporta o documento formal como PDF a partir do #pdf-print-template.
+ * Dispara a geração de forma silenciosa sem alterar os dados da tela principal.
+ * @param {object|null} [dadosOS=null] — Objeto da O.S. para injeção direta sem afetar tela.
+ */
+async function exportarPDF(dadosOS = null) {
+    const template  = document.getElementById('pdf-print-template');
+    const container = document.querySelector('.container');
+    const navbar    = document.querySelector('.app-navbar');
+
+    if (!template) {
+        console.error('[exportarPDF] Elemento #pdf-print-template não encontrado.');
+        _mostrarToast('Erro ao exportar PDF: template não encontrado.', 'error');
+        return;
+    }
+
+    // 1. Injetar dados no template (diretamente do objeto da O.S. ou do formulário)
+    injetarDadosPDF(dadosOS);
+
+    // 2. Ocultar interface temporariamente e exibir template limpo
     if (container) container.style.display = 'none';
     if (navbar)    navbar.style.display    = 'none';
     template.style.display = 'block';
 
-    // d) Executar html2pdf().from(document.getElementById('pdf-print-template'))
+    // 3. Configurações de exportação do PDF
     const dataHoje = new Date().toISOString().slice(0, 10);
-    const osIdentificador = solicitacaoAtualId ? `_OS_${String(solicitacaoAtualId).padStart(3, '0')}` : '';
+    const osId = dadosOS?.id || solicitacaoAtualId;
+    const osIdentificador = osId ? `_OS_${String(osId).padStart(3, '0')}` : '';
     const opt = {
         margin:      [10, 10, 10, 10],
         filename:    `solicitacao_estoque${osIdentificador}_${dataHoje}.pdf`,
@@ -1131,7 +1158,7 @@ async function exportarPDF() {
         console.error('[exportarPDF] Erro ao gerar PDF:', err);
         _mostrarToast('Falha ao exportar PDF.', 'error');
     } finally {
-        // e) No bloco finally, ocultar o template e restaurar a exibição da tela principal
+        // 4. Restaurar a visualização da tela principal intacta
         template.style.display = 'none';
         if (container) container.style.display = '';
         if (navbar)    navbar.style.display    = '';
