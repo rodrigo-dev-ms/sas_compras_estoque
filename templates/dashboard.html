@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitação de Estoque — Quick Telecom</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <!-- Barra superior de utilitários (usuário logado e logout) -->
+    <header class="app-navbar hide-on-export">
+        <div class="navbar-content">
+            <span class="user-badge">
+                Conectado como: <strong>{{ user | capitalize }}</strong>
+            </span>
+            <form method="post" action="/logout" class="logout-form">
+                <button type="submit" class="btn-logout" title="Encerrar sessão">Sair</button>
+            </form>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="pdf-area" class="document-sheet">
+            <header class="doc-header">
+                <div class="company-brand">
+                    <h2>Quick Telecom</h2>
+                    <span class="badge-status">Status: ABERTA</span>
+                </div>
+                <h3>Solicitação de Estoque</h3>
+                <p class="doc-subtitle">Documento de requisição interna de materiais e equipamentos</p>
+            </header>
+
+            <form id="form-estoque" onsubmit="event.preventDefault();">
+                <div class="grid-2">
+                    <div class="input-group">
+                        <label for="data-solicitacao">DATA DA SOLICITAÇÃO</label>
+                        <input id="data-solicitacao" type="date" value="{{ data_atual }}">
+                    </div>
+                    <div class="input-group">
+                        <label for="solicitante">SOLICITANTE</label>
+                        <input id="solicitante" type="text" value="{{ user | capitalize }}">
+                    </div>
+                    <div class="input-group">
+                        <label for="destino">DESTINO</label>
+                        <input id="destino" type="text" placeholder="Ex: PQ NOVO MT">
+                    </div>
+                    <div class="input-group">
+                        <label for="objetivo">OBJETIVO</label>
+                        <input id="objetivo" type="text" placeholder="Ex: Ajuste de LINKS">
+                    </div>
+                </div>
+
+                <div class="input-group full-width">
+                    <label for="justificativa">JUSTIFICATIVA</label>
+                    <textarea id="justificativa" rows="2" placeholder="Descreva o motivo da solicitação..."></textarea>
+                </div>
+
+                <div class="table-section-header">
+                    <h4>LISTA DE MATERIAIS</h4>
+                    <span class="table-counter" id="item-counter">0 item(ns) adicionado(s)</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="tabela-materiais">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th style="width: 28%;">Material</th>
+                                <th>Descrição Detalhada</th>
+                                <th style="width: 70px;">Un</th>
+                                <th style="width: 90px;">Qtd Sol.</th>
+                                <th class="hide-on-export" style="width: 80px; text-align: center;">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-materiais">
+                            <!-- Linhas inseridas dinamicamente via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <button type="button" class="btn-add hide-on-export" onclick="addLinha()">
+                    <span class="btn-icon">+</span> Adicionar Material
+                </button>
+
+                <div class="input-group full-width mt-3">
+                    <label for="observacoes">OBSERVAÇÕES GERAIS</label>
+                    <textarea id="observacoes" rows="2" placeholder="Informações adicionais para a equipe de estoque/compras..."></textarea>
+                </div>
+
+                <div class="assinaturas">
+                    <div class="ass-box">
+                        <div class="signature-line"></div>
+                        <p class="signature-role">Solicitante</p>
+                    </div>
+                    <div class="ass-box">
+                        <div class="signature-line"></div>
+                        <p class="signature-role">Responsável pelo Estoque</p>
+                    </div>
+                    <div class="ass-box">
+                        <div class="signature-line"></div>
+                        <p class="signature-role">Aprovação / Gerência</p>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="action-bar hide-on-export">
+            <button type="button" class="btn-export" onclick="exportarPDF()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Exportar para PDF
+            </button>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
