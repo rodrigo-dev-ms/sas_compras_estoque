@@ -17,11 +17,9 @@
                 Quicker Compras
             </a>
             <div class="navbar-right">
-                {% if user_role == 'admin' %}
-                <button type="button" class="btn-action-sm" onclick="trocarAba('tab-usuarios')" title="Painel de Gestão de Usuários" style="border-color: var(--accent-primary); color: #93c5fd;">
-                    Gestão de Usuários
+                <button type="button" class="btn-action-sm" onclick="trocarAba('tab-usuarios')" title="Minha Conta" style="border-color: var(--accent-primary); color: #93c5fd;">
+                    {% if user_role == 'admin' %}Gestão de Usuários{% else %}Minha Conta{% endif %}
                 </button>
-                {% endif %}
                 <span class="user-badge">
                     Conectado como: <strong>{{ user | capitalize }}</strong>
                     <span class="role-tag">{{ user_role }}</span>
@@ -47,12 +45,10 @@
                 Histórico
                 <span class="tab-badge" id="tab-count-badge">0</span>
             </button>
-            {% if user_role == 'admin' %}
             <button type="button" class="tab" data-tab="tab-usuarios" onclick="trocarAba('tab-usuarios')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                Gestão de Usuários
+                {% if user_role == 'admin' %}Gestão de Usuários{% else %}Minha Conta{% endif %}
             </button>
-            {% endif %}
         </nav>
 
         <!-- ══════════════════════════════════════════════════════════════════
@@ -232,13 +228,21 @@
         <!-- ══════════════════════════════════════════════════════════════════
              ABA 3 — GESTÃO DE USUÁRIOS (Somente Administradores)
              ══════════════════════════════════════════════════════════════════ -->
-        {% if user_role == 'admin' %}
         <section id="tab-usuarios" class="tab-content">
             <div class="document-sheet">
                 <header class="doc-header">
-                    <h2>Gestão de Usuários</h2>
-                    <p class="doc-subtitle">Painel administrativo de cadastro, alteração e inativação de contas</p>
+                    <h2>{% if user_role == 'admin' %}Gestão de Usuários{% else %}Minha Conta{% endif %}</h2>
+                    <p class="doc-subtitle">
+                        {% if user_role == 'admin' %}
+                            Painel administrativo de cadastro, alteração e inativação de contas
+                        {% else %}
+                            Seus dados cadastrais — altere apenas a senha
+                        {% endif %}
+                    </p>
                 </header>
+
+                {% if user_role == 'admin' %}
+                {# ───────────────────────── PAINEL COMPLETO (ADMIN) ───────────────────────── #}
 
                 <!-- Formulário de Usuário (Criar / Editar) -->
                 <div style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
@@ -260,6 +264,7 @@
                                 <label for="usuario-role">PERFIL / ROLE</label>
                                 <select id="usuario-role">
                                     <option value="solicitante">Solicitante</option>
+                                    <option value="compras">Compras</option>
                                     <option value="estoque">Estoque</option>
                                     <option value="admin">Administrador</option>
                                     <option value="inativo">Inativo</option>
@@ -306,9 +311,51 @@
                         </tbody>
                     </table>
                 </div>
+
+                {% else %}
+                {# ─────────────────── PAINEL DE CONTA PRÓPRIA (NÃO-ADMIN) ─────────────────── #}
+
+                <!-- Dados somente leitura do usuário logado -->
+                <div style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
+                    <h4 style="margin-bottom: 14px; color: var(--text-primary); font-size: 0.95rem;">Dados Cadastrais</h4>
+                    <div class="grid-2">
+                        <div class="input-group">
+                            <label>NOME DE USUÁRIO</label>
+                            <input type="text" value="{{ user }}" readonly style="opacity: 0.6; cursor: not-allowed;">
+                        </div>
+                        <div class="input-group">
+                            <label>PERFIL</label>
+                            <input type="text" value="{{ user_role }}" readonly style="opacity: 0.6; cursor: not-allowed;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário de troca de senha -->
+                <div style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px;">
+                    <h4 style="margin-bottom: 14px; color: var(--text-primary); font-size: 0.95rem;">Alterar Senha</h4>
+                    <form id="form-alterar-senha" onsubmit="event.preventDefault(); alterarPropriaSenha();">
+                        <div class="grid-2">
+                            <div class="input-group">
+                                <label for="nova-senha">NOVA SENHA</label>
+                                <input id="nova-senha" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" required>
+                            </div>
+                            <div class="input-group" style="justify-content: flex-end;">
+                                <div style="margin-top: auto;">
+                                    <button type="submit" class="btn-save" id="btn-alterar-senha">
+                                        Alterar Senha
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ID do usuário logado para uso no JS -->
+                <span id="current-user-id" data-id="{{ user_id }}" style="display:none;"></span>
+
+                {% endif %}
             </div>
         </section>
-        {% endif %}
     </div>
 
     <!-- Toast de notificações -->

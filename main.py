@@ -61,6 +61,9 @@ ROLE_ADMIN: str = "admin"
 # Role de usuário desativado
 ROLE_INATIVO: str = "inativo"
 
+# Roles de usuários comuns (sem privilégios administrativos)
+ROLES_COMUNS: set[str] = {"compras", "solicitante", "estoque"}
+
 # ---------------------------------------------------------------------------
 # Lifespan — inicializa o banco antes de aceitar requisições
 # ---------------------------------------------------------------------------
@@ -87,7 +90,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(
     title="Quicker Compras — Solicitação de Estoque",
-    version="0.4.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
@@ -648,17 +651,38 @@ async def atualizar_usuario(
     usuario_id: int,
     payload: UsuarioUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(_requer_admin),
+    current_user: User = Depends(_requer_auth),
 ) -> JSONResponse:
     """
-    Atualiza os dados de um usuário (username, senha, role ou inativação).
-    Restrito a administradores.
+    Atualiza os dados de um usuário.
+
+    RBAC v1.1.0:
+        - admin  : pode alterar qualquer campo de qualquer usuário.
+        - compras / solicitante / estoque : só podem alterar o próprio
+          password.  Tentativas de alterar username ou role retornam 403.
 
     Raises:
         HTTP 400 — tentativa de remover privilégio admin do próprio usuário logado.
+        HTTP 403 — usuário comum tentando editar outro usuário ou campos restritos.
         HTTP 404 — usuário não encontrado.
         HTTP 409 — username em conflito com outro usuário.
     """
+    is_admin: bool = current_user.role == ROLE_ADMIN
+
+    # ── Usuários comuns: só podem editar a si mesmos e apenas a senha ──────
+    if not is_admin:
+        if usuario_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você não tem permissão para editar dados de outro usuário.",
+            )
+        # Bloqueia qualquer tentativa de alterar username ou role
+        if payload.username is not None or payload.role is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuários comuns só podem alterar a própria senha.",
+            )
+
     usuario: User | None = db.query(User).filter(User.id == usuario_id).first()
     if not usuario:
         raise HTTPException(
@@ -666,8 +690,8 @@ async def atualizar_usuario(
             detail=f"Usuário id={usuario_id} não encontrado.",
         )
 
-    # Previne que o admin remova o próprio perfil ou se auto-inative
-    if usuario_id == _admin.id:
+    # ── Proteções exclusivas do admin sobre ele mesmo ──────────────────────
+    if is_admin and usuario_id == current_user.id:
         if payload.role and payload.role.strip().lower() != ROLE_ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -679,43 +703,47 @@ async def atualizar_usuario(
                 detail="Não é permitido inativar o próprio usuário administrador em sessão.",
             )
 
-    # Validação de unicidade caso o username tenha sido alterado
-    if payload.username and payload.username != usuario.username:
-        existente: User | None = (
-            db.query(User)
-            .filter(User.username == payload.username, User.id != usuario_id)
-            .first()
-        )
-        if existente:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Username '{payload.username}' já está em uso por outro usuário.",
+    # ── Aplica as alterações permitidas ───────────────────────────────────
+    if is_admin:
+        # Validação de unicidade do username (apenas admin pode alterá-lo)
+        if payload.username and payload.username != usuario.username:
+            existente: User | None = (
+                db.query(User)
+                .filter(User.username == payload.username, User.id != usuario_id)
+                .first()
             )
-        usuario.username = payload.username
+            if existente:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Username '{payload.username}' já está em uso por outro usuário.",
+                )
+            usuario.username = payload.username
 
+        if payload.role:
+            usuario.role = payload.role.strip().lower()
+
+        # Tratamento de flag de ativação/inativação
+        if payload.is_active is not None:
+            if hasattr(usuario, "is_active"):
+                setattr(usuario, "is_active", payload.is_active)
+            elif not payload.is_active and usuario.role != ROLE_INATIVO:
+                usuario.role = ROLE_INATIVO
+            elif payload.is_active and usuario.role == ROLE_INATIVO:
+                usuario.role = "solicitante"
+
+    # Alteração de senha: permitida tanto para admin quanto para o próprio usuário
     if payload.password:
         usuario.password = payload.password  # MVP — hash em produção
-
-    if payload.role:
-        usuario.role = payload.role.strip().lower()
-
-    # Tratamento de flag de ativação/inativação
-    if payload.is_active is not None:
-        if hasattr(usuario, "is_active"):
-            setattr(usuario, "is_active", payload.is_active)
-        elif not payload.is_active and usuario.role != ROLE_INATIVO:
-            usuario.role = ROLE_INATIVO
-        elif payload.is_active and usuario.role == ROLE_INATIVO:
-            usuario.role = "solicitante"
 
     db.commit()
     db.refresh(usuario)
 
     logger.info(
-        "Usuário atualizado: id=%d username=%r role=%r",
+        "Usuário atualizado: id=%d username=%r role=%r editor_id=%d",
         usuario.id,
         usuario.username,
         usuario.role,
+        current_user.id,
     )
     return JSONResponse(
         content=UsuarioRead.model_validate(usuario).model_dump()

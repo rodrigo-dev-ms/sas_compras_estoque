@@ -2,7 +2,7 @@
  * @fileoverview Lógica de manipulação do DOM, integração com API RESTful,
  * gestão de usuários (admin), filtros de histórico e exportação PDF.
  * @author Quicker Telecom Dev Team
- * @version 2.2.0
+ * @version 3.0.0
  */
 
 'use strict';
@@ -1008,6 +1008,55 @@ function limparFormUsuario() {
     if (titulo)    titulo.textContent = 'Cadastrar Novo Usuário';
     if (btnSalvar) btnSalvar.textContent = 'Salvar Usuário';
     if (btnCancelar) btnCancelar.style.display = 'none';
+}
+
+/**
+ * Altera a própria senha do usuário logado (usuários não-admin).
+ * Dispõe PUT /api/usuarios/{id} com apenas o campo password.
+ * Exibe toast de sucesso e limpa o campo em seguida.
+ */
+async function alterarPropriaSenha() {
+    const senhaInput = document.getElementById('nova-senha');
+    const idEl       = document.getElementById('current-user-id');
+
+    const novaSenha = senhaInput?.value.trim();
+    const userId    = idEl ? parseInt(idEl.dataset.id, 10) : null;
+
+    if (!novaSenha || novaSenha.length < 6) {
+        _mostrarToast('A nova senha deve ter no mínimo 6 caracteres.', 'error');
+        return;
+    }
+
+    if (!userId) {
+        _mostrarToast('Erro: ID do usuário não encontrado.', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_USUARIOS}/${userId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: novaSenha }),
+        });
+
+        if (response.status === 403) {
+            const err = await response.json().catch(() => ({}));
+            _mostrarToast(err.detail || 'Acesso negado.', 'error');
+            return;
+        }
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${response.status}`);
+        }
+
+        _mostrarToast('Senha alterada com sucesso!', 'success');
+        if (senhaInput) senhaInput.value = '';
+
+    } catch (err) {
+        console.error('[alterarPropriaSenha]', err);
+        _mostrarToast(`Erro ao alterar senha: ${err.message}`, 'error');
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
