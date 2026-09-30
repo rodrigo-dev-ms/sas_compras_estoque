@@ -1221,6 +1221,10 @@ table#tabela-materiais td select {
     font-weight: 500 !important;
     color: #1e293b !important;
     line-height: 1.4 !important;
+    /* v1.1.0 — Fix: respeita \n do textarea e quebra URLs longas no PDF */
+    white-space: pre-wrap !important;      /* preserva \n e espaços do textarea */
+    overflow-wrap: break-word !important;  /* quebra URLs que ultrapassam o container */
+    word-break: break-word !important;     /* compatibilidade extra para strings contínuas */
 }
 
 /* ---------- RODAPÉ — ASSINATURAS (ABSOLUTE BOTTOM) ---------- */
